@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>UNO! 3D Classic - Offline & Local Network Multiplayer</title>
+  <link rel="stylesheet" href="css/style.css">
+  <!-- Dynamic Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+  <div class="app-background-glow"></div>
+  
+  <!-- Mobile Landscape Suggestion Banner -->
+  <div id="landscape-banner" class="landscape-banner">
+    <i class="fa-solid fa-mobile-screen-button"></i> Rotate device to landscape mode for the ultimate table experience!
+  </div>
+
+  <div class="screen-scaler" id="screen-scaler">
+    <div class="app-container app-container-fullscreen">
+      <!-- Main Screens Router -->
+      <main class="main-content">
+      
+        <!-- MENU SCREEN -->
+        <section id="menu-screen" class="screen active">
+          <!-- Premium Header for Menu/Lobby screens only -->
+          <header class="header menu-header-floating">
+            <div class="logo-3d-container">
+              <h1 class="logo-3d">
+                <span class="l-red">U</span><span class="l-yellow">N</span><span class="l-green">O</span><span class="l-blue">!</span>
+              </h1>
+              <div class="logo-shadow"></div>
+            </div>
+            <p class="tagline"><i class="fa-solid fa-gamepad"></i> 3D Perspective Edition</p>
+          </header>
+
+          <div class="card-panel glass-morphic">
+            <div class="panel-header">
+              <h2>Select Game Mode</h2>
+              <p>Play Solo against Smart AI or with Friends on your local Wi-Fi!</p>
+            </div>
+
+            <div class="input-group">
+              <label for="player-name"><i class="fa-solid fa-user-astronaut"></i> Player Username</label>
+              <input type="text" id="player-name" placeholder="Captain UNO" value="Player 1" maxlength="15">
+            </div>
+
+            <div class="mode-buttons-grid">
+              <button id="btn-vs-ai" class="btn-premium btn-ai">
+                <div class="btn-icon"><i class="fa-solid fa-robot"></i></div>
+                <div class="btn-info">
+                  <span class="btn-title">Vs Computer</span>
+                  <span class="btn-desc">Offline Singleplayer AI Mode</span>
+                </div>
+              </button>
+
+              <button id="btn-create-room" class="btn-premium btn-host">
+                <div class="btn-icon"><i class="fa-solid fa-house-laptop"></i></div>
+                <div class="btn-info">
+                  <span class="btn-title">Host Wi-Fi Game</span>
+                  <span class="btn-desc">Create a Local LAN Lobby</span>
+                </div>
+              </button>
+
+              <button id="btn-show-join" class="btn-premium btn-join-toggle">
+                <div class="btn-icon"><i class="fa-solid fa-network-wired"></i></div>
+                <div class="btn-info">
+                  <span class="btn-title">Join Local Game</span>
+                  <span class="btn-desc">Connect with Friend's Code</span>
+                </div>
+              </button>
+
+              <button id="btn-customize-layout" class="btn-premium btn-layout-toggle">
+                <div class="btn-icon"><i class="fa-solid fa-sliders"></i></div>
+                <div class="btn-info">
+                  <span class="btn-title">Customize Layout</span>
+                  <span class="btn-desc">Table scale, cards & font size</span>
+                </div>
+              </button>
+            </div>
+
+            <!-- Join Interactive Box -->
+            <div id="join-box" class="join-box hidden animate-slide-down">
+              <div class="join-input-wrapper">
+                <i class="fa-solid fa-key join-icon"></i>
+                <input type="text" id="room-code-input" placeholder="ROOM CODE (6-CHARS)" maxlength="6">
+              </div>
+              <button id="btn-join-room" class="btn btn-warning-3d">
+                Join <i class="fa-solid fa-arrow-right-to-bracket"></i>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- LOBBY SCREEN -->
+        <section id="lobby-screen" class="screen">
+          <div class="card-panel glass-morphic">
+            <div class="lobby-badge">Lobby Status</div>
+            <h2>Waiting Area</h2>
+          
+            <div class="room-info-card">
+              <div class="room-code-section">
+                <span class="code-label">ROOM LOBBY CODE</span>
+                <div id="lobby-room-code" class="highlight-code">------</div>
+              </div>
+              <p class="lan-instruction">
+                <i class="fa-solid fa-circle-info"></i> Ask friends on the same Wi-Fi network to use this Room Code to join!
+              </p>
+            </div>
+
+            <div class="players-list-container">
+              <h3><i class="fa-solid fa-users"></i> Joined Crew (<span id="player-count">1</span>/4)</h3>
+              <ul id="players-list" class="players-list">
+                <!-- Populated dynamically -->
+              </ul>
+            </div>
+
+            <div class="lobby-actions">
+              <button id="btn-start-game" class="btn btn-success-3d hidden">
+                <i class="fa-solid fa-circle-play"></i> Start Match
+              </button>
+              <button id="btn-leave-lobby" class="btn btn-danger-3d">
+                <i class="fa-solid fa-right-from-bracket"></i> Leave Lobby
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- 3D PERSPECTIVE GAME BOARD SCREEN -->
+        <section id="game-screen" class="screen">
+          <div class="game-wrapper">
+          
+            <!-- Floating Top-Right Menu Button -->
+            <button id="btn-menu-trigger" class="btn-menu-floating" title="Game Menu">
+              <i class="fa-solid fa-bars"></i> Menu
+            </button>
+
+            <!-- Main Table Space (Maximized) -->
+            <div class="table-3d-space">
+              <div class="table-3d-plate">
+                <div class="table-surface-grid"></div>
+              
+                <!-- OPPONENT: TOP (Opponent 1) -->
+                <div class="opponent-seat seat-top">
+                  <div class="opp-info">
+                    <span class="opp-name" id="opp-top-name">Opponent Top</span>
+                    <div class="opp-badge"><i class="fa-solid fa-clone"></i> <span id="opp-top-count">7</span></div>
+                  </div>
+                  <div class="opponent-card">
+                    <div class="opp-cards-preview" id="opp-top-cards">
+                      <!-- Cards will render here -->
+                    </div>
+                  </div>
+                </div>
+
+                <!-- OPPONENT: LEFT (Opponent 2) -->
+                <div class="opponent-seat seat-left">
+                  <div class="opp-info">
+                    <span class="opp-name" id="opp-left-name">Opponent Left</span>
+                    <div class="opp-badge"><i class="fa-solid fa-clone"></i> <span id="opp-left-count">7</span></div>
+                  </div>
+                  <div class="opponent-card">
+                    <div class="opp-cards-preview" id="opp-left-cards">
+                      <!-- Cards will render here -->
+                    </div>
+                  </div>
+                </div>
+
+                <!-- OPPONENT: RIGHT (Opponent 3) -->
+                <div class="opponent-seat seat-right">
+                  <div class="opp-info">
+                    <span class="opp-name" id="opp-right-name">Opponent Right</span>
+                    <div class="opp-badge"><i class="fa-solid fa-clone"></i> <span id="opp-right-count">7</span></div>
+                  </div>
+                  <div class="opponent-card">
+                    <div class="opp-cards-preview" id="opp-right-cards">
+                      <!-- Cards will render here -->
+                    </div>
+                  </div>
+                </div>
+
+                <!-- CENTER DECK AREA -->
+                <div class="center-deck-area">
+                  <!-- 3D Direction Flow Ring -->
+                  <div id="direction-ring-3d" class="direction-ring-3d clockwise">
+                    <div class="dir-arrow arrow-1"><i class="fa-solid fa-chevron-right"></i></div>
+                    <div class="dir-arrow arrow-2"><i class="fa-solid fa-chevron-right"></i></div>
+                    <div class="dir-arrow arrow-3"><i class="fa-solid fa-chevron-right"></i></div>
+                    <div class="dir-arrow arrow-4"><i class="fa-solid fa-chevron-right"></i></div>
+                  </div>
+
+                  <!-- 3D Draw Deck (Face down) -->
+                  <div id="draw-deck-3d" class="deck-3d-stack draw-pile">
+                    <div class="card-3d card-back" style="--i: 0"></div>
+                    <div class="card-3d card-back" style="--i: 1"></div>
+                    <div class="card-3d card-back" style="--i: 2"></div>
+                    <div class="card-3d card-back" style="--i: 3"></div>
+                    <div class="card-3d card-back" style="--i: 4"></div>
+                    <div class="deck-overlay-text">DRAW</div>
+                  </div>
+
+                  <!-- 3D Discard Pile (Face up) -->
+                  <div id="discard-pile-3d" class="deck-3d-stack discard-pile">
+                    <!-- Top Card is dynamically added here -->
+                  </div>
+                </div>
+
+                <!-- CURRENT PLAYER AREA (Bottom Seat) -->
+                <div class="current-player-seat">
+                  <div class="player-controls-row">
+                    <span class="my-title">Your Hand</span>
+                  </div>
+                  <div id="player-cards-fan" class="player-cards-fan-layout">
+                    <!-- Playable fanned cards go here -->
+                  </div>
+                </div>
+
+                <!-- Dedicated Action Control Dock (Stable layout inside green felt, above hand) -->
+                <div class="action-dock">
+                  <button id="btn-uno" class="uno-button-pulse">UNO!</button>
+                  <button id="btn-pass-turn" class="btn btn-warning-3d">Pass Turn</button>
+                </div>
+
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+      </main>
+
+      <!-- OVERLAYS & MODALS -->
+
+      <!-- Dynamic Color Picker Modal for Wild Cards -->
+      <div id="color-picker-modal" class="modal-overlay hidden">
+        <div class="modal-content color-picker-box animate-scale-up">
+          <h3><i class="fa-solid fa-palette"></i> Choose Wild Color</h3>
+          <p>Pick the color theme for the next plays:</p>
+          <div class="color-options-grid">
+            <button class="color-opt opt-red" data-color="red">
+              <span class="color-label">RED</span>
+            </button>
+            <button class="color-opt opt-blue" data-color="blue">
+              <span class="color-label">BLUE</span>
+            </button>
+            <button class="color-opt opt-green" data-color="green">
+              <span class="color-label">GREEN</span>
+            </button>
+            <button class="color-opt opt-yellow" data-color="yellow">
+              <span class="color-label">YELLOW</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Game Over Screen Modal -->
+      <div id="game-over-modal" class="modal-overlay hidden">
+        <div class="modal-content game-over-box animate-scale-up">
+          <div class="winner-trophy-icon">
+            <i class="fa-solid fa-trophy"></i>
+          </div>
+          <h2 id="game-winner-title">Victory!</h2>
+          <p id="game-winner-message">Congratulations, Player 1 won the match!</p>
+          <div class="game-over-actions">
+            <button id="btn-restart" class="btn btn-success-3d">Play Again <i class="fa-solid fa-arrow-rotate-right"></i></button>
+            <button id="btn-home" class="btn btn-secondary-3d">Main Menu <i class="fa-solid fa-house"></i></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Custom In-Game Modal Component (Alert & Confirm) -->
+      <div id="custom-game-modal" class="modal-overlay hidden">
+        <div class="modal-content custom-game-modal-box animate-scale-up glass-morphic">
+          <div class="modal-header">
+            <h3 id="custom-modal-title"><i class="fa-solid fa-circle-exclamation"></i> UNO NOTICE</h3>
+          </div>
+          <div class="modal-body">
+            <p id="custom-modal-message">Message goes here...</p>
+          </div>
+          <div class="modal-footer-actions" id="custom-modal-footer">
+            <!-- Dynamically populated buttons -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Slide-out Navigation Menu Drawer -->
+      <div id="game-menu-drawer" class="modal-overlay drawer-overlay hidden">
+        <div class="drawer-content animate-slide-left">
+          <div class="drawer-header">
+            <h3><i class="fa-solid fa-gamepad"></i> Game Menu</h3>
+            <button id="btn-drawer-close" class="drawer-close-btn"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+          <div class="drawer-body">
+            <button id="btn-drawer-resume" class="btn-drawer-item">
+              <i class="fa-solid fa-play"></i> Resume Game
+            </button>
+            <button id="btn-drawer-layout" class="btn-drawer-item">
+              <i class="fa-solid fa-sliders"></i> Customize Layout
+            </button>
+            <button id="btn-drawer-sound" class="btn-drawer-item">
+              <i class="fa-solid fa-volume-high" id="sound-icon"></i> Sound: <span id="sound-status">ON</span>
+            </button>
+            <button id="btn-drawer-exit" class="btn-drawer-item btn-drawer-danger">
+              <i class="fa-solid fa-right-from-bracket"></i> Exit to Lobby / Home
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Customize Layout Settings Modal -->
+      <div id="layout-customizer-modal" class="modal-overlay hidden">
+        <div class="modal-content layout-customizer-box animate-scale-up glass-morphic">
+          <div class="modal-header">
+            <h3><i class="fa-solid fa-sliders"></i> Customize Table & Layout</h3>
+            <button id="btn-layout-close" class="drawer-close-btn"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+          <div class="modal-body">
+            <p class="customizer-subtitle">Adjust parameters in real-time. Changes apply instantly to the game board!</p>
+
+            <!-- Board Scale Slider -->
+            <div class="slider-control-group">
+              <div class="slider-label-row">
+                <label for="slider-board-scale"><i class="fa-solid fa-table-tennis-paddle-ball"></i> Board Scale / Width</label>
+                <span id="val-board-scale" class="slider-val-badge">1.00x</span>
+              </div>
+              <input type="range" id="slider-board-scale" min="0.7" max="1.3" step="0.05" value="1.0">
+            </div>
+
+            <!-- Card Size Slider -->
+            <div class="slider-control-group">
+              <div class="slider-label-row">
+                <label for="slider-card-size"><i class="fa-solid fa-clone"></i> Player Hand Card Size</label>
+                <span id="val-card-size" class="slider-val-badge">1.00x</span>
+              </div>
+              <input type="range" id="slider-card-size" min="0.7" max="1.4" step="0.05" value="1.0">
+            </div>
+
+            <!-- Opponents Size Slider -->
+            <div class="slider-control-group">
+              <div class="slider-label-row">
+                <label for="slider-bot-size"><i class="fa-solid fa-robot"></i> Opponents Card/Avatar Size</label>
+                <span id="val-bot-size" class="slider-val-badge">1.00x</span>
+              </div>
+              <input type="range" id="slider-bot-size" min="0.7" max="1.3" step="0.05" value="1.0">
+            </div>
+
+            <!-- Font Scale Slider -->
+            <div class="slider-control-group">
+              <div class="slider-label-row">
+                <label for="slider-font-scale"><i class="fa-solid fa-font"></i> Font / Text Size Scale</label>
+                <span id="val-font-scale" class="slider-val-badge">1.00x</span>
+              </div>
+              <input type="range" id="slider-font-scale" min="0.8" max="1.3" step="0.05" value="1.0">
+            </div>
+          </div>
+
+          <div class="modal-footer-actions">
+            <button id="btn-layout-reset" class="btn btn-secondary-3d">
+              <i class="fa-solid fa-rotate-left"></i> Reset to Default
+            </button>
+            <button id="btn-layout-save" class="btn btn-success-3d">
+              <i class="fa-solid fa-check"></i> Done
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Notification Toasts -->
+      <div id="toast-message" class="toast hidden"></div>
+    </div>
+  </div>
+
+  <script src="js/game.js?v=2.0"></script>
+</body>
+</html>
