@@ -1202,6 +1202,9 @@ input[type="text"]:focus {
   transition: transform 0.25s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.2s;
   z-index: var(--index, 1);
 }
+.player-cards-fan-layout.draw-layout-sync .card-3d {
+  transition: none !important;
+}
 
 .player-cards-fan-layout .card-3d.fanning-transition,
 .opp-cards-preview .card-3d.fanning-transition {
@@ -1965,4 +1968,65 @@ input[type="range"] {
 
 /* Ghost cards deliberately share the same .card-back markup and rules as settled
    cards. Separate ghost back artwork caused a visible design jump after dealing. */
+.draw-flight-card {
+  position: absolute;
+  z-index: 9999;
+  transform-origin: bottom center;
+  transition: transform 450ms cubic-bezier(.25,1,.5,1);
+  will-change: transform;
+  pointer-events: none;
+  box-shadow: 0 14px 28px rgba(0,0,0,.5), 0 0 15px rgba(255,255,255,.2);
+  filter: drop-shadow(0 0 10px rgba(100,255,218,.35));
+  perspective: 1000px;
+}
+.discard-flight-ghost {
+  transform-origin: center center;
+  transition: transform 450ms cubic-bezier(.25,1,.5,1);
+  will-change: transform;
+  pointer-events: none;
+  box-shadow: 0 14px 28px rgba(0,0,0,.5), 0 0 15px rgba(255,255,255,.2);
+}
+.draw-flight-face {
+  position: absolute !important;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.draw-flight-back { transform: rotateY(0deg); }
+.draw-flight-card .card-inner { pointer-events: none; }
+.draw-flight-card .card-3d { cursor: default; }
+.draw-flight-card .draw-flight-face {
+  box-shadow: 0 4px 12px rgba(0,0,0,.4), 0 1px 2px rgba(0,0,0,.3);
+}
+.draw-reveal-card {
+  perspective: 1000px;
+  transform-style: preserve-3d;
+  background: transparent !important;
+  box-shadow: none !important;
+  z-index: 9999 !important;
+}
+.draw-reveal-inner {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transition: transform 600ms cubic-bezier(.23,1,.32,1);
+}
+.draw-reveal-card.is-revealed .draw-reveal-inner { transform: rotateY(180deg); }
+.draw-reveal-side {
+  position: absolute !important;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  box-shadow: none !important;
+  filter: none !important;
+  transition: opacity 80ms linear;
+}
+.draw-reveal-back { transform: rotateY(0deg); opacity: 1; }
+.draw-reveal-front { transform: rotateY(180deg); opacity: 0; }
+.draw-reveal-card.is-revealed .draw-reveal-back { opacity: 0; transition-delay: 300ms; }
+.draw-reveal-card.is-revealed .draw-reveal-front { opacity: 1; transition-delay: 300ms; }
 

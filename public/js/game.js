@@ -328,6 +328,7 @@
   // Error Messages
   socket.on('error_message', (msg) => {
     appState.pendingAction = null;
+    cancelDiscardFlight();
     showToast(msg || 'An error occurred.');
   });
 
@@ -557,11 +558,11 @@
     return 'top';
   }
 
-  function renderDiscardPile(topCard) {
+  function renderDiscardPile(topCard, landedRotation = 5) {
     const discardPileContainer = document.getElementById('discard-pile-3d');
     if (!discardPileContainer) return;
     const cardSignature = topCard
-      ? JSON.stringify([String(topCard.id ?? ''), topCard.color ?? '', topCard.value ?? ''])
+      ? JSON.stringify([String(topCard.id ?? ''), topCard.color ?? '', topCard.value ?? '', landedRotation])
       : 'empty';
     if (discardPileContainer.dataset.cardSignature === cardSignature) return;
     discardPileContainer.dataset.cardSignature = cardSignature;
@@ -572,7 +573,7 @@
         underlayCard.style.opacity = '0.35';
         discardPileContainer.appendChild(underlayCard);
       }
-      const topCardEl = create3DCardElement(topCard, 2, 5, false);
+      const topCardEl = create3DCardElement(topCard, 2, landedRotation, false);
       discardPileContainer.appendChild(topCardEl);
     } else {
       discardPileContainer.innerHTML = '<div style="color: rgba(255,255,255,0.4); text-align: center; margin-top: 25px; font-weight: bold;">DISCARD EMPTY</div>';
@@ -791,7 +792,7 @@
    * Primary Authoritative UI Render Function
    * Renders the entire game table strictly according to the server's gameState contract.
    */
-  function renderGame(state) {
+  function renderGame(state, discardRotation = 5) {
     if (!state) {
       console.warn('[renderGame] Empty or invalid state received');
       return;
@@ -799,6 +800,25 @@
 
     if (window.isDealingOrFanning) {
       return;
+    }
+
+    const discardFlight = window.pendingDiscardFlight;
+    if (discardFlight && Array.isArray(state.myHand)
+      && !state.myHand.some(card => String(card?.id) === String(discardFlight.card.id))) {
+      discardFlight.state = state;
+      if (discardFlight.landed) finishDiscardFlight(discardFlight);
+      return;
+    }
+
+    const drawFlight = window.pendingDrawGhost;
+    if (drawFlight && Array.isArray(state.myHand) && state.myHand.length > drawFlight.baseCount) {
+      const drawnCard = state.myHand.find(card => !drawFlight.baseIds.has(String(card?.id)));
+      if (drawnCard) {
+        drawFlight.state = state;
+        drawFlight.card = drawnCard;
+        revealDrawGhost(drawFlight);
+        return;
+      }
     }
 
     // 1. Update Direction Flow Ring
@@ -841,7 +861,7 @@
     }
 
     // 4. Render center discard pile
-    renderDiscardPile(state.topCard);
+    renderDiscardPile(state.topCard, discardRotation);
 
     // 5. Render opponent seating
     setupOpponentsSeating(state);
@@ -883,19 +903,24 @@
       // does not collapse and fan out again on every opponent move.
       if (handContainer.dataset.handSignature !== handSignature) {
         handContainer.dataset.handSignature = handSignature;
+        handContainer.classList.add('draw-layout-sync');
         handContainer.innerHTML = '';
         const totalCards = cardsToRender.length;
         const renderedCards = [];
 
         cardsToRender.forEach((card, idx) => {
           if (!card) return;
-          const cardEl = create3DCardElement(card, idx, 0, false);
+          const isDrawReveal = window.drawRevealCardId != null && String(card.id) === String(window.drawRevealCardId);
+          const cardEl = isDrawReveal
+            ? createDrawRevealCardElement(card, idx)
+            : create3DCardElement(card, idx, 0, false);
+          cardEl.dataset.cardId = String(card.id);
 
           if (appState.selectedCardId && String(card.id) === String(appState.selectedCardId)) {
             cardEl.classList.add('selected');
           }
 
-          if (state.lastDrawnCardId && String(card.id) === String(state.lastDrawnCardId)) {
+          if (!isDrawReveal && state.lastDrawnCardId && String(card.id) === String(state.lastDrawnCardId)) {
             cardEl.classList.add('just-drawn');
           }
 
@@ -906,6 +931,7 @@
           handContainer.appendChild(cardEl);
           renderedCards.push(cardEl);
         });
+        if (window.drawRevealCardId != null) window.drawRevealCardId = null;
 
         const availableWidth = handContainer.clientWidth || 380;
         const cardWidth = renderedCards[0]?.getBoundingClientRect().width || 64;
@@ -925,6 +951,7 @@
           cardEl.style.transformOrigin = 'bottom center';
           cardEl.style.transform = `translateX(${targetX}px) translateY(${targetY}px) rotateZ(${angle}deg) scale(1)`;
         });
+        requestAnimationFrame(() => handContainer.classList.remove('draw-layout-sync'));
       }
     }
   }
@@ -1137,6 +1164,99 @@
     }
   }
 
+  function startDiscardFlight(card, cardEl) {
+    const discardPile = document.getElementById('discard-pile-3d');
+    const hand = document.getElementById('player-cards-fan');
+    if (!card || !cardEl || !discardPile || !hand) return;
+
+    const source = cardEl.getBoundingClientRect();
+    const destination = discardPile.getBoundingClientRect();
+    const targetWidth = destination.width || source.width;
+    const targetHeight = destination.height || source.height;
+    const sourceCenterX = source.left + source.width / 2;
+    const sourceCenterY = source.top + source.height / 2;
+    const boardScale = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--board-scale')) || 1;
+    const endCenterX = destination.left + destination.width / 2 - 3 * boardScale;
+    const endCenterY = destination.top + destination.height / 2 - 3 * boardScale;
+    const startX = sourceCenterX - targetWidth / 2;
+    const startY = sourceCenterY - targetHeight / 2;
+    const randomAngle = (Math.random() - 0.5) * 24;
+    let overlay = document.getElementById('ghost-animation-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'ghost-animation-overlay';
+      overlay.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:9999;overflow:hidden;';
+      document.body.appendChild(overlay);
+    }
+
+    const ghost = create3DCardElement(card, 0, 0, false);
+    ghost.classList.add('discard-flight-ghost');
+    ghost.classList.remove('selected', 'just-drawn');
+    Object.assign(ghost.style, {
+      position: 'absolute', left: `${startX}px`, top: `${startY}px`,
+      width: `${targetWidth}px`, height: `${targetHeight}px`, zIndex: '9999',
+      transform: `translate3d(0,0,0) scale(${source.width / targetWidth},${source.height / targetHeight}) rotate(0deg)`
+    });
+    overlay.appendChild(ghost);
+    ghost.getBoundingClientRect();
+
+    cardEl.remove();
+    refanHandAfterDiscard(hand);
+
+    const pending = { card, el: ghost, state: null, landed: false, hand, rotation: randomAngle };
+    window.pendingDiscardFlight = pending;
+    requestAnimationFrame(() => {
+      ghost.style.transform = `translate3d(${endCenterX - sourceCenterX}px,${endCenterY - sourceCenterY}px,0) scale(1) rotate(${randomAngle}deg)`;
+    });
+    const land = () => {
+      if (window.pendingDiscardFlight !== pending || pending.landed) return;
+      pending.landed = true;
+      if (pending.state) finishDiscardFlight(pending);
+    };
+    ghost.addEventListener('transitionend', land, { once: true });
+    setTimeout(land, 500);
+    setTimeout(() => {
+      if (window.pendingDiscardFlight === pending) cancelDiscardFlight();
+    }, 5000);
+  }
+
+  function refanHandAfterDiscard(hand) {
+    const cards = Array.from(hand.children).filter(el => el.classList?.contains('card-3d'));
+    const total = cards.length;
+    const scale = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--board-scale')) || 1;
+    const cardWidth = cards[0] ? cards[0].offsetWidth * scale : 64;
+    const availableWidth = hand.clientWidth || 380;
+    const spread = total > 1
+      ? Math.min(380, total * 40, Math.max(0, availableWidth - cardWidth - 16))
+      : 0;
+    cards.forEach((cardEl, idx) => {
+      const angle = total > 1 ? -20 + idx * (40 / (total - 1)) : 0;
+      const x = total > 1 ? -spread / 2 + idx * (spread / (total - 1)) : 0;
+      const y = Math.abs(angle) * 0.8;
+      cardEl.style.setProperty('--x', x);
+      cardEl.style.setProperty('--y', y);
+      cardEl.style.setProperty('--angle', angle);
+      cardEl.style.setProperty('--index', idx);
+      cardEl.style.transform = `translateX(${x}px) translateY(${y}px) rotateZ(${angle}deg) scale(1)`;
+    });
+  }
+
+  function finishDiscardFlight(pending) {
+    if (!pending || window.pendingDiscardFlight !== pending || !pending.state) return;
+    pending.el.remove();
+    window.pendingDiscardFlight = null;
+    renderGame(pending.state, pending.rotation);
+  }
+
+  function cancelDiscardFlight() {
+    const pending = window.pendingDiscardFlight;
+    if (!pending) return;
+    pending.el.remove();
+    window.pendingDiscardFlight = null;
+    if (pending.hand) pending.hand.dataset.handSignature = '';
+    if (appState.latestServerState) renderGame(appState.latestServerState);
+  }
+
   /**
    * Two-Tap Card Selection and Play Controller
    */
@@ -1146,7 +1266,7 @@
       return;
     }
 
-    if (!appState.isMyTurn || appState.pendingAction) {
+    if (!appState.isMyTurn || appState.pendingAction || window.pendingDiscardFlight) {
       showToast('Wait for your turn to play!');
       return;
     }
@@ -1162,6 +1282,7 @@
         if (colorModal) colorModal.classList.remove('hidden');
       } else {
         appState.pendingAction = 'play';
+        startDiscardFlight(card, cardEl);
         socket.emit('play_card', {
           roomId: appState.roomId,
           cardId: card.id,
@@ -1269,13 +1390,20 @@
     // Draw Deck Click
     if (drawDeck3d) {
       drawDeck3d.addEventListener('click', () => {
-        if (appState.roomId && appState.canDraw && !appState.pendingAction) {
+        if (appState.roomId && appState.canDraw && !appState.pendingAction && !window.pendingDrawGhost) {
+          // A previously selected card stays raised; clear it so it cannot be
+          // mistaken for the card arriving from the draw pile.
+          appState.selectedCardId = null;
+          appState.pendingWildCardId = null;
+          appState.pendingWildCardIndex = null;
+          const hand = document.getElementById('player-cards-fan');
+          if (hand) {
+            hand.classList.add('draw-layout-sync');
+            hand.querySelectorAll('.card-3d.selected').forEach(card => card.classList.remove('selected'));
+            requestAnimationFrame(() => hand.classList.remove('draw-layout-sync'));
+          }
           appState.pendingAction = 'draw';
-          
-          const handFan = document.getElementById('player-cards-fan');
-          animateCardFlight(drawDeck3d, handFan || drawDeck3d, null, () => {
-            socket.emit('draw_card', { roomId: appState.roomId });
-          });
+          startDrawGhost(drawDeck3d, () => socket.emit('draw_card', { roomId: appState.roomId }));
 
           setTimeout(() => {
             if (appState.pendingAction === 'draw') appState.pendingAction = null;
@@ -1405,11 +1533,18 @@
         if (colorModal) colorModal.classList.add('hidden');
 
         if (appState.pendingWildCardId && appState.roomId) {
+          const wildCardId = appState.pendingWildCardId;
+          const wildCardIndex = appState.pendingWildCardIndex;
+          const wildCard = appState.latestServerState?.myHand?.find(card => String(card.id) === String(wildCardId));
+          const hand = document.getElementById('player-cards-fan');
+          const wildElement = hand && Array.from(hand.querySelectorAll('.card-3d'))
+            .find(cardEl => cardEl.dataset.cardId === String(wildCardId));
           appState.pendingAction = 'play';
+          if (wildCard && wildElement) startDiscardFlight(wildCard, wildElement);
           socket.emit('play_card', {
             roomId: appState.roomId,
-            cardId: appState.pendingWildCardId,
-            cardIndex: appState.pendingWildCardIndex,
+            cardId: wildCardId,
+            cardIndex: wildCardIndex,
             chosenColor: chosenColor
           });
 
@@ -1427,6 +1562,148 @@
     initLayoutCustomizer();
 
     console.log('🎮 UNO 3D Perspective Game Client fully initialized.');
+  }
+
+  function startDrawGhost(deck, onArrive) {
+    const hand = document.getElementById('player-cards-fan');
+    if (!hand) { onArrive(); return; }
+    const handCards = Array.from(hand.querySelectorAll('.card-3d'));
+    const count = handCards.length + 1;
+    const targetIndex = handCards.length;
+    const angle = count > 1 ? -20 + targetIndex * (40 / (count - 1)) : 0;
+    const y = Math.abs(angle) * 0.8;
+    const probe = create3DCardElement(null, targetIndex, angle, true);
+    probe.style.cssText = 'position:absolute;bottom:0;visibility:hidden;pointer-events:none;transform:none;transform-origin:bottom center;';
+    hand.appendChild(probe);
+    const unrotated = probe.getBoundingClientRect();
+    const spread = count > 1
+      ? Math.min(380, count * 40, Math.max(0, (hand.clientWidth || 380) - unrotated.width - 16))
+      : 0;
+    const x = count > 1 ? -spread / 2 + targetIndex * (spread / (count - 1)) : 0;
+    probe.style.setProperty('--x', x);
+    probe.style.setProperty('--y', y);
+    probe.style.setProperty('--angle', angle);
+    probe.style.setProperty('--index', targetIndex);
+    probe.style.transform = `translateX(${x}px) translateY(${y}px) rotateZ(${angle}deg) scale(1)`;
+    const destination = probe.getBoundingClientRect();
+    probe.remove();
+
+    // Match the ghost's transformed bounds to the exact future hand card bounds.
+    const radians = angle * Math.PI / 180;
+    const cos = Math.cos(radians);
+    const sin = Math.sin(radians);
+    const determinant = cos * cos - sin * sin;
+    const ghostWidth = (destination.width * cos - destination.height * sin) / determinant;
+    const ghostHeight = (destination.height * cos - destination.width * sin) / determinant;
+    const targetCenterX = destination.left + destination.width / 2;
+    const targetCenterY = destination.top + destination.height / 2;
+    const targetBaseX = targetCenterX - ghostWidth / 2 - ghostHeight * sin / 2;
+    const targetBaseY = targetCenterY - ghostHeight + ghostHeight * cos / 2;
+    const source = deck.getBoundingClientRect();
+    const startX = source.left + (source.width - ghostWidth) / 2;
+    const startY = source.top + (source.height - ghostHeight) / 2;
+    let overlay = document.getElementById('ghost-animation-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div'); overlay.id = 'ghost-animation-overlay';
+      overlay.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:9999;overflow:hidden;';
+      document.body.appendChild(overlay);
+    }
+    const ghost = document.createElement('div');
+    ghost.className = 'draw-flight-card';
+    const backFace = create3DCardElement(null, 0, 0, true);
+    backFace.classList.add('draw-flight-face', 'draw-flight-back');
+    backFace.style.zIndex = String(handCards.length);
+    ghost.appendChild(backFace);
+    Object.assign(ghost.style, {
+      left: `${startX}px`, top: `${startY}px`, width: `${ghostWidth}px`, height: `${ghostHeight}px`,
+      transform: 'translate3d(0,0,0) scale(.95) rotate(0deg)'
+    });
+    overlay.appendChild(ghost);
+    ghost.getBoundingClientRect();
+    requestAnimationFrame(() => {
+      ghost.style.transform = `translate3d(${targetBaseX - startX}px,${targetBaseY - startY}px,0) scale(1) rotate(${angle}deg)`;
+    });
+    const baseIds = new Set((appState.latestServerState?.myHand || []).map(card => String(card?.id)));
+    const pending = { el: ghost, arrived: false, flightDone: false, baseCount: handCards.length, baseIds };
+    window.pendingDrawGhost = pending;
+    const arrive = () => {
+      if (window.pendingDrawGhost !== pending || pending.arrived) return;
+      pending.arrived = true;
+      pending.flightDone = true;
+      onArrive();
+      if (pending.card) revealDrawGhost(pending);
+    };
+    ghost.addEventListener('transitionend', arrive, { once: true });
+    setTimeout(arrive, 500);
+  }
+
+  function revealDrawGhost(pending) {
+    if (!pending || !pending.flightDone || pending.handedOff || !pending.card || window.pendingDrawGhost !== pending) return;
+    pending.handedOff = true;
+    const landingRect = pending.el.getBoundingClientRect();
+    pending.el.remove();
+    window.pendingDrawGhost = null;
+    window.drawRevealCardId = String(pending.card.id);
+    renderGame(pending.state);
+    const hand = document.getElementById('player-cards-fan');
+    const realCard = hand && Array.from(hand.querySelectorAll('.card-3d'))
+      .find(card => card.dataset.cardId === String(pending.card.id));
+    if (realCard) {
+      alignCardToLanding(realCard, landingRect);
+      setTimeout(() => realCard.classList.add('is-revealed'), 100);
+      // Commit the revealed card to the normal hand markup after the 3D flip.
+      // This keeps the front visible even if a browser drops a 3D backface frame.
+      setTimeout(() => {
+        if (!realCard.isConnected || !hand) return;
+        const index = Array.from(hand.querySelectorAll('.card-3d')).indexOf(realCard);
+        if (index < 0) return;
+        const faceUpCard = create3DCardElement(pending.card, index, 0, false);
+        faceUpCard.dataset.cardId = String(pending.card.id);
+        ['--x', '--y', '--angle', '--index', '--i'].forEach(name => {
+          faceUpCard.style.setProperty(name, realCard.style.getPropertyValue(name));
+        });
+        ['position', 'bottom', 'transformOrigin', 'zIndex', 'transform'].forEach(name => {
+          faceUpCard.style[name] = realCard.style[name];
+        });
+        if (pending.state.lastDrawnCardId && String(pending.state.lastDrawnCardId) === String(pending.card.id)) {
+          faceUpCard.classList.add('just-drawn');
+        }
+        faceUpCard.addEventListener('click', () => handleCardClick(pending.card, faceUpCard, index));
+        realCard.replaceWith(faceUpCard);
+      }, 760);
+    }
+  }
+
+  function createDrawRevealCardElement(card, index) {
+    const cardEl = document.createElement('div');
+    cardEl.className = 'card-3d draw-reveal-card';
+    cardEl.style.setProperty('--i', index);
+    const back = create3DCardElement(null, index, 0, true);
+    const front = create3DCardElement(card, index, 0, false);
+    back.classList.add('draw-reveal-side', 'draw-reveal-back');
+    front.classList.add('draw-reveal-side', 'draw-reveal-front');
+    back.style.transform = 'rotateY(0deg)';
+    front.style.transform = 'rotateY(180deg)';
+    back.style.transformOrigin = 'center center';
+    front.style.transformOrigin = 'center center';
+    const flipper = document.createElement('div');
+    flipper.className = 'draw-reveal-inner';
+    flipper.append(back, front);
+    cardEl.appendChild(flipper);
+    return cardEl;
+  }
+
+  function alignCardToLanding(card, landingRect) {
+    const currentRect = card.getBoundingClientRect();
+    const scale = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--board-scale')) || 1;
+    const offsetX = (landingRect.left + landingRect.width / 2 - currentRect.left - currentRect.width / 2) / scale;
+    const offsetY = (landingRect.top + landingRect.height / 2 - currentRect.top - currentRect.height / 2) / scale;
+    const x = parseFloat(card.style.getPropertyValue('--x')) || 0;
+    const y = parseFloat(card.style.getPropertyValue('--y')) || 0;
+    const angle = parseFloat(card.style.getPropertyValue('--angle')) || 0;
+    card.style.setProperty('--x', x + offsetX);
+    card.style.setProperty('--y', y + offsetY);
+    card.style.transform = `translateX(${x + offsetX}px) translateY(${y + offsetY}px) rotateZ(${angle}deg) scale(1)`;
   }
 
   // ==========================================================================
