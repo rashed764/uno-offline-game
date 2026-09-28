@@ -291,6 +291,9 @@
   socket.on('update_game', (payload) => {
     appState.pendingAction = null;
     const gameState = (payload && payload.gameState) ? payload.gameState : payload;
+    const previousState = appState.latestServerState;
+    const remoteDiscardSource = captureRemoteDiscardSource(previousState, gameState);
+    const remoteDrawEvent = captureRemoteDrawEvent(previousState, gameState);
     appState.latestServerState = gameState;
 
     if (window.isDealingOrFanning || appState.isDealingOrFanning) {
@@ -304,12 +307,17 @@
     }
 
     renderGame(gameState);
+    animateRemoteDiscard(previousState, gameState, remoteDiscardSource);
+    animateRemoteDraw(remoteDrawEvent, gameState);
   });
 
   // Direct state sync packet
   socket.on('game_state', (payload) => {
     appState.pendingAction = null;
     const gameState = (payload && payload.gameState) ? payload.gameState : payload;
+    const previousState = appState.latestServerState;
+    const remoteDiscardSource = captureRemoteDiscardSource(previousState, gameState);
+    const remoteDrawEvent = captureRemoteDrawEvent(previousState, gameState);
     appState.latestServerState = gameState;
 
     if (window.isDealingOrFanning || appState.isDealingOrFanning) {
@@ -318,6 +326,8 @@
     }
 
     renderGame(gameState);
+    animateRemoteDiscard(previousState, gameState, remoteDiscardSource);
+    animateRemoteDraw(remoteDrawEvent, gameState);
   });
 
   // Real-time UNO Call
@@ -1191,6 +1201,8 @@
 
     const ghost = create3DCardElement(card, 0, 0, false);
     ghost.classList.add('discard-flight-ghost');
+    const isSkip = String(card.value).toLowerCase() === 'skip';
+    if (isSkip) ghost.classList.add('power-card-glow');
     ghost.classList.remove('selected', 'just-drawn');
     Object.assign(ghost.style, {
       position: 'absolute', left: `${startX}px`, top: `${startY}px`,
@@ -1203,7 +1215,9 @@
     cardEl.remove();
     refanHandAfterDiscard(hand);
 
-    const pending = { card, el: ghost, state: null, landed: false, hand, rotation: randomAngle };
+    const beforeState = appState.latestServerState;
+    const pending = { card, el: ghost, state: null, landed: false, hand, rotation: randomAngle,
+      skipTargetId: isSkip ? getSkippedPlayerId(beforeState) : null };
     window.pendingDiscardFlight = pending;
     requestAnimationFrame(() => {
       ghost.style.transform = `translate3d(${endCenterX - sourceCenterX}px,${endCenterY - sourceCenterY}px,0) scale(1) rotate(${randomAngle}deg)`;
@@ -1246,6 +1260,216 @@
     pending.el.remove();
     window.pendingDiscardFlight = null;
     renderGame(pending.state, pending.rotation);
+    if (pending.skipTargetId != null) playSkipImpact(pending.skipTargetId, pending.state);
+  }
+
+  function getSkippedPlayerId(state) {
+    if (!state?.players?.length) return null;
+    const players = state.players;
+    const currentId = state.currentTurnPlayerId ?? appState.myPlayerId ?? socket.id;
+    const currentIndex = players.findIndex(player => String(player.id) === String(currentId));
+    if (currentIndex < 0) return null;
+    const direction = Number(state.direction) === -1 ? -1 : 1;
+    return players[(currentIndex + direction + players.length) % players.length]?.id ?? null;
+  }
+
+  function playSkipImpact(playerId, state) {
+    const myId = appState.myPlayerId || socket.id;
+    const isMe = String(playerId) === String(myId);
+    const seatName = isMe ? null : getOpponentPositionName(playerId, state.players, myId);
+    const seat = isMe
+      ? document.querySelector('.current-player-seat')
+      : (seatName ? document.querySelector(`.seat-${seatName}`) : null);
+    const pile = document.getElementById('discard-pile-3d');
+    const overlay = document.getElementById('ghost-animation-overlay');
+    if (!seat || !pile || !overlay) return;
+
+    const pileRect = pile.getBoundingClientRect();
+    const seatRect = seat.getBoundingClientRect();
+    const shock = document.createElement('div');
+    shock.className = 'skip-impact-shockwave';
+    shock.style.left = `${pileRect.left + pileRect.width / 2}px`;
+    shock.style.top = `${pileRect.top + pileRect.height / 2}px`;
+    overlay.appendChild(shock);
+
+    const stamp = document.createElement('div');
+    stamp.className = 'skip-hologram-stamp';
+    stamp.innerHTML = '<span class="skip-shield-symbol">⊘</span><strong>SKIPPED!</strong>';
+    stamp.style.left = `${seatRect.left + seatRect.width / 2}px`;
+    stamp.style.top = `${seatRect.top + seatRect.height / 2}px`;
+    overlay.appendChild(stamp);
+
+    seat.classList.add('skip-target-hit');
+    const table = document.querySelector('.table-3d-plate');
+    table?.classList.add('skip-table-rumble');
+    setTimeout(() => shock.remove(), 850);
+    setTimeout(() => stamp.remove(), 1550);
+    setTimeout(() => seat.classList.remove('skip-target-hit'), 1450);
+    setTimeout(() => table?.classList.remove('skip-table-rumble'), 500);
+  }
+
+  function captureRemoteDiscardSource(previousState, nextState) {
+    const played = nextState?.lastPlayedCard;
+    if (!previousState?.topCard || !nextState?.topCard || !played
+      || String(previousState.topCard.id) === String(nextState.topCard.id)
+      || String(played.cardId) !== String(nextState.topCard.id)
+      || String(played.playerId) === String(appState.myPlayerId || socket.id)) return null;
+
+    const seatName = getOpponentPositionName(played.playerId, previousState.players || [], appState.myPlayerId || socket.id);
+    const stack = seatName ? document.getElementById(`opp-${seatName}-cards`) : null;
+    const cards = stack ? Array.from(stack.querySelectorAll('.card-3d')) : [];
+    const sourceCard = Number.isInteger(Number(played.handIndex)) ? cards[Number(played.handIndex)] : null;
+    if (!sourceCard) return null;
+
+    // Measure before renderGame re-fans the opponent's now smaller hand.
+    const rect = sourceCard.getBoundingClientRect();
+    return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+  }
+
+  function captureRemoteDrawEvent(previousState, nextState) {
+    const draw = nextState?.lastDrawEvent;
+    if (!draw || draw.eventId == null
+      || String(previousState?.lastDrawEvent?.eventId ?? '') === String(draw.eventId)
+      || String(draw.playerId) === String(appState.myPlayerId || socket.id)) return null;
+
+    const deck = document.getElementById('draw-deck-3d');
+    if (!deck) return null;
+    const rect = deck.getBoundingClientRect();
+    return {
+      ...draw,
+      source: { left: rect.left, top: rect.top, width: rect.width, height: rect.height }
+    };
+  }
+
+  function animateRemoteDraw(draw, state) {
+    if (!draw || window.pendingDrawGhost || window.pendingDiscardFlight) return;
+    const me = appState.myPlayerId || socket.id;
+    const seatName = getOpponentPositionName(draw.playerId, state.players || [], me);
+    const stack = seatName ? document.getElementById(`opp-${seatName}-cards`) : null;
+    const targetCard = stack?.querySelectorAll('.card-3d')[Number(draw.handIndex)];
+    if (!stack || !targetCard) return;
+    let overlay = document.getElementById('ghost-animation-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'ghost-animation-overlay';
+      overlay.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:9999;overflow:hidden;';
+      document.body.appendChild(overlay);
+    }
+
+    const target = targetCard.getBoundingClientRect();
+    const source = draw.source;
+    const cardWidth = targetCard.offsetWidth || 84;
+    const cardHeight = targetCard.offsetHeight || cardWidth * 1.58;
+    const targetIndex = Number(draw.handIndex);
+    const count = stack.querySelectorAll('.card-3d').length;
+    const localAngle = count > 1 ? -17.5 + targetIndex * (35 / (count - 1)) : 0;
+    const seatAngle = seatName === 'top' ? 180 : seatName === 'left' ? 90 : -90;
+    const finalAngle = localAngle + seatAngle;
+    const radians = finalAngle * Math.PI / 180;
+    const expectedWidth = Math.abs(Math.cos(radians)) * cardWidth + Math.abs(Math.sin(radians)) * cardHeight;
+    const expectedHeight = Math.abs(Math.sin(radians)) * cardWidth + Math.abs(Math.cos(radians)) * cardHeight;
+    const finalScale = (target.width / expectedWidth + target.height / expectedHeight) / 2;
+    const startCenterX = source.left + source.width / 2;
+    const startCenterY = source.top + source.height / 2;
+    const endCenterX = target.left + target.width / 2;
+    const endCenterY = target.top + target.height / 2;
+
+    const ghost = document.createElement('div');
+    ghost.className = 'draw-flight-card remote-draw-flight-card';
+    const back = create3DCardElement(null, targetIndex, 0, true);
+    back.classList.add('draw-flight-face', 'draw-flight-back');
+    ghost.appendChild(back);
+    Object.assign(ghost.style, {
+      left: `${startCenterX - cardWidth / 2}px`,
+      top: `${startCenterY - cardHeight / 2}px`,
+      width: `${cardWidth}px`,
+      height: `${cardHeight}px`,
+      transform: `translate3d(0,0,0) scale(${source.width / cardWidth},${source.height / cardHeight}) rotate(0deg)`
+    });
+    targetCard.style.visibility = 'hidden';
+    overlay.appendChild(ghost);
+    ghost.getBoundingClientRect();
+    requestAnimationFrame(() => {
+      ghost.style.transform = `translate3d(${endCenterX - startCenterX}px,${endCenterY - startCenterY}px,0) rotate(${finalAngle}deg) scale(${finalScale})`;
+    });
+
+    let landed = false;
+    const land = () => {
+      if (landed) return;
+      landed = true;
+      ghost.remove();
+      if (targetCard.isConnected) targetCard.style.visibility = '';
+    };
+    ghost.addEventListener('transitionend', land, { once: true });
+    setTimeout(land, 520);
+  }
+
+  function animateRemoteDiscard(previousState, nextState, measuredSource) {
+    // Local plays already have a measured hand-card ghost. Remote plays are
+    // detected from the authoritative top-card change and use the opponent's
+    // visible seat as their flight origin.
+    if (window.pendingDiscardFlight || !previousState?.topCard || !nextState?.topCard
+      || String(previousState.topCard.id) === String(nextState.topCard.id)) return;
+
+    const played = nextState.lastPlayedCard;
+    const actorId = played?.playerId || previousState.currentTurnPlayerId;
+    const isSkip = String(nextState.topCard.value).toLowerCase() === 'skip';
+    const targetId = isSkip ? getSkippedPlayerId(previousState) : null;
+    const signature = `${actorId}:${nextState.topCard.id}`;
+    if ((isSkip && targetId == null) || signature === window.lastRemoteDiscardAnimationKey) return;
+    window.lastRemoteDiscardAnimationKey = signature;
+
+    const actorSeat = getOpponentPositionName(actorId, previousState.players || [], appState.myPlayerId || socket.id);
+    const sourceEl = actorSeat ? document.getElementById(`opp-${actorSeat}-cards`) : null;
+    const pile = document.getElementById('discard-pile-3d');
+    if (!sourceEl || !pile) {
+      if (isSkip) playSkipImpact(targetId, nextState);
+      return;
+    }
+
+    let overlay = document.getElementById('ghost-animation-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'ghost-animation-overlay';
+      overlay.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:9999;overflow:hidden;';
+      document.body.appendChild(overlay);
+    }
+
+    const source = measuredSource || sourceEl.getBoundingClientRect();
+    const pileRect = pile.getBoundingClientRect();
+    const pileCard = pile.querySelector('.card-3d:last-child');
+    const cardRect = pileCard?.getBoundingClientRect();
+    const width = cardRect?.width || 84;
+    const height = cardRect?.height || width * 1.58;
+    const startCenterX = source.left + source.width / 2;
+    const startCenterY = source.top + source.height / 2;
+    const endCenterX = pileRect.left + pileRect.width / 2;
+    const endCenterY = pileRect.top + pileRect.height / 2;
+    const ghost = create3DCardElement(nextState.topCard, 0, 0, false);
+    ghost.classList.add('discard-flight-ghost');
+    if (isSkip) ghost.classList.add('power-card-glow');
+    Object.assign(ghost.style, {
+      position: 'absolute', left: `${startCenterX - width / 2}px`, top: `${startCenterY - height / 2}px`,
+      width: `${width}px`, height: `${height}px`, zIndex: '10000',
+      transform: `translate3d(0,0,0) scale(${source.width / width},${source.height / height}) rotate(-8deg)`
+    });
+    overlay.appendChild(ghost);
+    if (pileCard) pileCard.style.visibility = 'hidden';
+    ghost.getBoundingClientRect();
+    requestAnimationFrame(() => {
+      ghost.style.transform = `translate3d(${endCenterX - startCenterX}px,${endCenterY - startCenterY}px,0) scale(1) rotate(0deg)`;
+    });
+
+    let landed = false;
+    const land = () => {
+      if (landed) return;
+      landed = true;
+      ghost.remove();
+      if (pileCard?.isConnected) pileCard.style.visibility = '';
+      if (isSkip) playSkipImpact(targetId, nextState);
+    };
+    ghost.addEventListener('transitionend', land, { once: true });
+    setTimeout(land, 520);
   }
 
   function cancelDiscardFlight() {

@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Power Card FX - Skip & Reverse Card Animation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body {
+            background: radial-gradient(circle at center, #111d28 0%, #080f16 70%, #030609 100%);
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+
+        :root {
+            --card-w: 88px;
+            --card-h: 126px;
+            --card-radius: 10px;
+        }
+
+        @media (max-width: 640px) {
+            :root {
+                --card-w: 68px;
+                --card-h: 98px;
+                --card-radius: 7px;
+            }
+        }
+
+        /* Base Card Styling */
+        .card {
+            width: var(--card-w);
+            height: var(--card-h);
+            border-radius: var(--card-radius);
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+            perspective: 1000px;
+            user-select: none;
+            box-sizing: border-box;
+        }
+
+        .card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+            transform-style: preserve-3d;
+        }
+
+        .card.flipped .card-inner {
+            transform: rotateY(180deg);
+        }
+
+        .card-front, .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: var(--card-radius);
+            overflow: hidden;
+        }
+
+        .card-back {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            border: 3px solid #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Power Skip Card Design */
+        .card-front.skip-card {
+            background: linear-gradient(135deg, #ff0055 0%, #ff5000 100%);
+            color: #ffffff;
+            border: 2px solid #ffffff;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 8px;
+            transform: rotateY(180deg);
+            box-shadow: inset 0 0 15px rgba(255, 255, 255, 0.4);
+        }
+
+        /* Power Reverse Card Design */
+        .card-front.reverse-card {
+            background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%);
+            color: #ffffff;
+            border: 2px solid #ffffff;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 8px;
+            transform: rotateY(180deg);
+            box-shadow: inset 0 0 15px rgba(255, 255, 255, 0.4);
+        }
+
+        .card-corner {
+            font-size: 0.85rem;
+            font-weight: 900;
+            line-height: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .card-center-icon {
+            font-size: 2.2rem;
+            align-self: center;
+            filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.4));
+        }
+
+        /* Table & Overlay Setup */
+        #poker-table {
+            background: radial-gradient(circle at center, #1a2f3b 0%, #0e1b24 70%, #070e14 100%);
+        }
+
+        #animation-overlay {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        .flying-card {
+            position: absolute;
+            width: var(--card-w) !important;
+            height: var(--card-h) !important;
+            will-change: transform, filter;
+            transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+            pointer-events: none;
+        }
+
+        /* Neon Glow during Power Card Flight */
+        .glow-skip {
+            filter: drop-shadow(0 0 20px #ff0055) drop-shadow(0 0 40px #ff5000) scale(1.05);
+            animation: pulseGlowSkip 0.3s infinite alternate;
+        }
+
+        .glow-reverse {
+            filter: drop-shadow(0 0 20px #00c6ff) drop-shadow(0 0 40px #0072ff) scale(1.05);
+            animation: pulseGlowReverse 0.3s infinite alternate;
+        }
+
+        @keyframes pulseGlowSkip {
+            0% { filter: drop-shadow(0 0 15px #ff0055) drop-shadow(0 0 25px #ff5000); }
+            100% { filter: drop-shadow(0 0 25px #ff0055) drop-shadow(0 0 45px #ffcc00); }
+        }
+
+        @keyframes pulseGlowReverse {
+            0% { filter: drop-shadow(0 0 15px #00c6ff) drop-shadow(0 0 25px #0072ff); }
+            100% { filter: drop-shadow(0 0 25px #00c6ff) drop-shadow(0 0 45px #a855f7); }
+        }
+
+        /* Shockwave Ripple Effect */
+        .shockwave {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            transform: translate(-50%, -50%) scale(0.1);
+            opacity: 1;
+            pointer-events: none;
+            animation: expandShockwave 0.65s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+        }
+
+        .shockwave-skip {
+            border: 4px solid #ff0055;
+            box-shadow: 0 0 30px #ff0055, inset 0 0 20px #ff5000;
+        }
+
+        .shockwave-reverse {
+            border: 4px solid #00c6ff;
+            box-shadow: 0 0 30px #00c6ff, inset 0 0 20px #0072ff;
+        }
+
+        @keyframes expandShockwave {
+            0% { transform: translate(-50%, -50%) scale(0.1); opacity: 1; border-width: 8px; }
+            50% { opacity: 0.8; }
+            100% { transform: translate(-50%, -50%) scale(3.5); opacity: 0; border-width: 1px; }
+        }
+
+        /* Hologram Stamp FX */
+        .player-slot-container {
+            position: relative;
+            transition: all 0.4s ease;
+        }
+
+        .player-slot-container.skipped-active {
+            filter: grayscale(0.5) opacity(0.6);
+            transform: scale(0.96);
+        }
+
+        .hologram-stamp {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(3) rotate(-15deg);
+            opacity: 0;
+            pointer-events: none;
+            z-index: 150;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            animation: stampIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        @keyframes stampIn {
+            0% { transform: translate(-50%, -50%) scale(3.5) rotate(-35deg); opacity: 0; }
+            70% { transform: translate(-50%, -50%) scale(0.9) rotate(-10deg); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(1.0) rotate(-12deg); opacity: 1; }
+        }
+
+        .stamp-badge-skip {
+            background: linear-gradient(135deg, #e60000 0%, #990000 100%);
+            border: 3px solid #ffffff;
+            box-shadow: 0 0 25px rgba(255, 0, 85, 0.9), inset 0 0 15px rgba(255, 255, 255, 0.5);
+            color: white;
+            font-weight: 900;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            padding: 8px 18px;
+            border-radius: 9999px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+        }
+
+        .stamp-badge-reverse {
+            background: linear-gradient(135deg, #0088ff 0%, #0044cc 100%);
+            border: 3px solid #ffffff;
+            box-shadow: 0 0 25px rgba(0, 198, 255, 0.9), inset 0 0 15px rgba(255, 255, 255, 0.5);
+            color: white;
+            font-weight: 900;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            padding: 8px 18px;
+            border-radius: 9999px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+        }
+
+        /* Direction Spin Ring */
+        .direction-ring {
+            position: absolute;
+            width: 170px;
+            height: 170px;
+            border-radius: 50%;
+            border: 2px dashed rgba(0, 198, 255, 0.4);
+            pointer-events: none;
+            transition: transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .rotate-cw {
+            transform: rotate(0deg);
+            animation: spinCW 12s linear infinite;
+        }
+
+        .rotate-ccw {
+            transform: rotate(180deg);
+            animation: spinCCW 12s linear infinite;
+        }
+
+        @keyframes spinCW { 100% { transform: rotate(360deg); } }
+        @keyframes spinCCW { 100% { transform: rotate(-360deg); } }
+
+        /* Screen Shake */
+        .table-rumble {
+            animation: rumble 0.3s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+        }
+
+        @keyframes rumble {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 1px, 0); }
+            30%, 50%, 70% { transform: translate3d(-3px, -1px, 0); }
+            40%, 60% { transform: translate3d(3px, 0, 0); }
+        }
+
+        /* Hand Setup */
+        .hand-slot {
+            border: 2px dashed rgba(255, 255, 255, 0.15);
+            border-radius: var(--card-radius);
+            width: calc(var(--card-w) * 4.8);
+            min-height: calc(var(--card-h) + 20px);
+            background: rgba(0, 0, 0, 0.2);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 6px;
+            position: relative;
+        }
+
+        .cards-hand-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        .in-hand-card {
+            position: absolute;
+            transition: transform 0.45s cubic-bezier(0.25, 1, 0.5, 1);
+            transform-origin: bottom center;
+            cursor: pointer;
+        }
+
+        .in-hand-card:hover {
+            transform: translateY(-20px) scale(1.1) rotate(0deg) !important;
+            z-index: 100 !important;
+            box-shadow: 0 14px 28px rgba(0, 0, 0, 0.6), 0 0 15px rgba(0, 198, 255, 0.6);
+        }
+
+        .glass-panel {
+            background: rgba(12, 24, 36, 0.8);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col justify-between p-4 relative select-none">
+
+    <!-- Header -->
+    <header class="w-full flex justify-between items-center z-20 max-w-5xl mx-auto">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-cyan-600/30 border border-cyan-400/40 flex items-center justify-center text-cyan-400 text-lg shadow-lg">
+                <i class="fa-solid fa-arrows-rotate"></i>
+            </div>
+            <div>
+                <h1 class="text-white font-bold text-lg tracking-wide leading-none">Power Card FX Simulator</h1>
+                <p class="text-xs text-cyan-300/80 mt-1">Skip & Reverse Visual FX Architecture</p>
+            </div>
+        </div>
+
+        <div id="status-badge" class="glass-panel px-4 py-2 rounded-full flex items-center gap-2.5 text-xs text-cyan-200 border border-cyan-500/30">
+            <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse" id="status-dot"></span>
+            <span id="status-text" class="font-medium">Ready to Play</span>
+        </div>
+    </header>
+
+    <!-- Poker Table Body -->
+    <main class="relative flex-1 w-full max-w-5xl mx-auto my-2 rounded-3xl border border-white/10 shadow-2xl flex flex-col justify-between p-4 overflow-hidden" id="poker-table">
+        
+        <div id="animation-overlay"></div>
+
+        <!-- Top Player: Bot Alice -->
+        <div class="flex flex-col items-center justify-center z-10 player-slot-container" id="player-container-alice">
+            <div class="text-xs font-semibold text-slate-200 mb-1 flex items-center gap-1.5 bg-black/40 px-3 py-1 rounded-full border border-white/10" id="avatar-alice">
+                <i class="fa-solid fa-robot text-emerald-400"></i> Bot Alice <span class="text-emerald-400/70 text-[10px]" id="count-alice">(3)</span>
+            </div>
+            <div class="hand-slot" id="slot-alice">
+                <div class="cards-hand-wrapper" id="hand-alice"></div>
+            </div>
+        </div>
+
+        <!-- Middle Row: Next Target Player (Bot Bob) & Discard Center Stack -->
+        <div class="flex items-center justify-between px-4 sm:px-12 w-full z-10 my-auto">
+            
+            <!-- Left: Bot Bob -->
+            <div class="flex flex-col items-center justify-center player-slot-container" id="player-container-bob">
+                <div class="text-xs font-semibold text-slate-200 mb-1 flex items-center gap-1.5 bg-black/40 px-3 py-1 rounded-full border border-white/10" id="avatar-bob">
+                    <i class="fa-solid fa-robot text-amber-400"></i> Bot Bob <span class="text-amber-400/70 text-[10px]" id="count-bob">(3)</span>
+                </div>
+                <div class="hand-slot" id="slot-bob">
+                    <div class="cards-hand-wrapper" id="hand-bob"></div>
+                </div>
+            </div>
+
+            <!-- Central Discard Area -->
+            <div class="relative flex flex-col items-center justify-center">
+                <!-- Direction Indicator Spinning Ring -->
+                <div id="direction-ring" class="direction-ring rotate-cw flex items-center justify-between px-2 text-cyan-400 text-xs">
+                    <i class="fa-solid fa-chevron-right"></i>
+                    <i class="fa-solid fa-chevron-left"></i>
+                </div>
+
+                <div id="discard-pile-anchor" class="w-[88px] h-[126px] border-2 dashed border-cyan-500/30 rounded-xl bg-black/30 flex items-center justify-center relative">
+                    <span id="discard-label" class="text-[10px] text-cyan-300/40 uppercase font-bold tracking-wider">Discard</span>
+                    <div id="discard-stack-container" class="absolute inset-0 flex items-center justify-center"></div>
+                </div>
+                <div class="flex items-center gap-2 mt-2">
+                    <span class="text-[11px] font-semibold text-cyan-200/80 uppercase" id="discard-counter">0 Discarded</span>
+                    <span id="direction-badge" class="text-[10px] bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 px-2 py-0.5 rounded-full font-bold">CW ↻</span>
+                </div>
+            </div>
+
+            <!-- Right: Bot Charlie -->
+            <div class="flex flex-col items-center justify-center player-slot-container" id="player-container-charlie">
+                <div class="text-xs font-semibold text-slate-200 mb-1 flex items-center gap-1.5 bg-black/40 px-3 py-1 rounded-full border border-white/10" id="avatar-charlie">
+                    <i class="fa-solid fa-robot text-purple-400"></i> Bot Charlie <span class="text-purple-400/70 text-[10px]" id="count-charlie">(3)</span>
+                </div>
+                <div class="hand-slot" id="slot-charlie">
+                    <div class="cards-hand-wrapper" id="hand-charlie"></div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Bottom Player: You (Human) -->
+        <div class="flex flex-col items-center justify-center z-10" id="player-container-user">
+            <div class="hand-slot mb-1" id="slot-player">
+                <div class="cards-hand-wrapper" id="hand-player"></div>
+            </div>
+            <div class="text-xs font-semibold text-cyan-300 flex items-center gap-1.5 bg-black/50 px-3.5 py-1 rounded-full border border-cyan-500/30">
+                <i class="fa-solid fa-user-astronaut text-cyan-400"></i> You (Player) - Click Skip / Reverse Card to Trigger FX <span class="text-cyan-400/60 text-[10px]" id="count-player">(4)</span>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Action Bar -->
+    <footer class="w-full max-w-md mx-auto z-20 mt-1">
+        <div class="glass-panel p-3 rounded-2xl flex items-center justify-around gap-3 shadow-2xl">
+            <button id="btn-play-skip" onclick="playPowerCard('skip')" class="flex-1 bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white font-bold py-2.5 px-3 rounded-xl text-xs sm:text-sm transition-all transform active:scale-95 shadow-lg flex items-center justify-center gap-1.5 border border-rose-400/30">
+                <i class="fa-solid fa-ban text-sm"></i>
+                <span>Play Skip</span>
+            </button>
+
+            <button id="btn-play-reverse" onclick="playPowerCard('reverse')" class="flex-1 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold py-2.5 px-3 rounded-xl text-xs sm:text-sm transition-all transform active:scale-95 shadow-lg flex items-center justify-center gap-1.5 border border-cyan-400/30">
+                <i class="fa-solid fa-rotate-left text-sm"></i>
+                <span>Play Reverse</span>
+            </button>
+
+            <button onclick="resetDemo()" class="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 font-semibold py-2.5 px-3.5 rounded-xl text-xs sm:text-sm transition-all transform active:scale-95 flex items-center justify-center" title="Reset Demo">
+                <i class="fa-solid fa-arrow-rotate-right"></i>
+            </button>
+        </div>
+    </footer>
+
+    <script>
+        let isAnimating = false;
+        let isClockwise = true;
+        let discardPile = [];
+        let playerHand = [
+            { type: 'skip', color: 'rose' },
+            { type: 'reverse', color: 'cyan' },
+            { type: 'number', value: '7', suit: '♠', color: 'black' },
+            { type: 'number', value: '3', suit: '♥', color: 'red' }
+        ];
+
+        function setStatus(msg, state = 'normal') {
+            const statusText = document.getElementById('status-text');
+            const statusDot = document.getElementById('status-dot');
+            statusText.innerText = msg;
+            if (state === 'busy') {
+                statusDot.className = 'w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping';
+            } else if (state === 'skip') {
+                statusDot.className = 'w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse';
+            } else if (state === 'reverse') {
+                statusDot.className = 'w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse';
+            } else {
+                statusDot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400';
+            }
+        }
+
+        function getFanTransform(index, totalCards) {
+            if (totalCards <= 1) return { translateX: 0, translateY: 0, rotateDeg: 0 };
+            const overlap = 28;
+            const centerIdx = (totalCards - 1) / 2;
+            const translateX = (index - centerIdx) * overlap;
+            const norm = (index - centerIdx) / Math.max(1, centerIdx);
+            const translateY = Math.abs(norm) * Math.abs(norm) * 8;
+            const rotateDeg = norm * 9;
+            return { translateX, translateY, rotateDeg };
+        }
+
+        function renderUserHand() {
+            const container = document.getElementById('hand-player');
+            document.getElementById('count-player').innerText = `(${playerHand.length})`;
+            container.innerHTML = '';
+
+            playerHand.forEach((card, idx) => {
+                const { translateX, translateY, rotateDeg } = getFanTransform(idx, playerHand.length);
+                const cardEl = document.createElement('div');
+                cardEl.className = 'card in-hand-card flipped';
+                cardEl.id = `user-card-${idx}`;
+                cardEl.style.transform = `translate(${translateX}px, ${translateY}px) rotate(${rotateDeg}deg)`;
+                cardEl.style.zIndex = idx + 1;
+
+                if (card.type === 'skip') {
+                    cardEl.innerHTML = createCardHTML('skip-card', 'fa-ban', 'SKIP');
+                    cardEl.addEventListener('click', () => playPowerCard('skip', idx));
+                } else if (card.type === 'reverse') {
+                    cardEl.innerHTML = createCardHTML('reverse-card', 'fa-rotate-left', 'REVERSE');
+                    cardEl.addEventListener('click', () => playPowerCard('reverse', idx));
+                } else {
+                    cardEl.innerHTML = `
+                        <div class="card-inner">
+                            <div class="card-back"><div class="card-back-pattern"></div></div>
+                            <div class="card-front ${card.color === 'red' ? 'text-red-600' : 'text-slate-900'} bg-white flex flex-col justify-between p-2 font-bold border border-slate-300">
+                                <div class="card-corner"><span>${card.value}</span><span>${card.suit}</span></div>
+                                <div class="text-2xl self-center">${card.suit}</div>
+                                <div class="card-corner" style="transform: rotate(180deg);"><span>${card.value}</span><span>${card.suit}</span></div>
+                            </div>
+                        </div>
+                    `;
+                }
+                container.appendChild(cardEl);
+            });
+        }
+
+        function createCardHTML(cardClass, iconClass, label) {
+            return `
+                <div class="card-inner">
+                    <div class="card-back"><div class="card-back-pattern"></div></div>
+                    <div class="card-front ${cardClass}">
+                        <div class="card-corner">
+                            <span><i class="fa-solid ${iconClass}"></i></span>
+                            <span class="text-[9px]">${label}</span>
+                        </div>
+                        <div class="card-center-icon"><i class="fa-solid ${iconClass}"></i></div>
+                        <div class="card-corner" style="transform: rotate(180deg);">
+                            <span><i class="fa-solid ${iconClass}"></i></span>
+                            <span class="text-[9px]">${label}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderBotHands() {
+            ['bob', 'alice', 'charlie'].forEach(botId => {
+                const wrapper = document.getElementById(`hand-${botId}`);
+                wrapper.innerHTML = '';
+                for (let i = 0; i < 3; i++) {
+                    const { translateX, translateY, rotateDeg } = getFanTransform(i, 3);
+                    const cardEl = document.createElement('div');
+                    cardEl.className = 'card in-hand-card';
+                    cardEl.style.transform = `translate(${translateX}px, ${translateY}px) rotate(${rotateDeg}deg)`;
+                    cardEl.style.zIndex = i + 1;
+                    cardEl.innerHTML = `<div class="card-back"><div class="card-back-pattern"></div></div>`;
+                    wrapper.appendChild(cardEl);
+                }
+            });
+        }
+
+        async function playPowerCard(cardType, cardIndex = null) {
+            if (isAnimating) return;
+
+            if (cardIndex === null) {
+                cardIndex = playerHand.findIndex(c => c.type === cardType);
+            }
+
+            if (cardIndex === -1 || !playerHand[cardIndex]) {
+                setStatus(`No ${cardType.toUpperCase()} card in hand!`, 'busy');
+                return;
+            }
+
+            isAnimating = true;
+            setStatus(`PLAYING POWER ${cardType.toUpperCase()} CARD!`, cardType);
+
+            const overlay = document.getElementById('animation-overlay');
+            const tableEl = document.getElementById('poker-table');
+            const tableRect = tableEl.getBoundingClientRect();
+
+            const cardEl = document.getElementById(`user-card-${cardIndex}`);
+            const sourceRect = cardEl.getBoundingClientRect();
+
+            const discardAnchor = document.getElementById('discard-pile-anchor');
+            const discardRect = discardAnchor.getBoundingClientRect();
+
+            // 1. Remove card from player hand & re-render
+            const [playedCard] = playerHand.splice(cardIndex, 1);
+            renderUserHand();
+
+            // 2. Create Flying Ghost Power Card with Arc Path
+            const startX = sourceRect.left - tableRect.left;
+            const startY = sourceRect.top - tableRect.top;
+
+            const destX = discardRect.left - tableRect.left + (discardRect.width - sourceRect.width) / 2;
+            const destY = discardRect.top - tableRect.top + (discardRect.height - sourceRect.height) / 2;
+
+            const flyingCard = document.createElement('div');
+            const glowClass = cardType === 'skip' ? 'glow-skip' : 'glow-reverse';
+            const cardDesignClass = cardType === 'skip' ? 'skip-card' : 'reverse-card';
+            const iconClass = cardType === 'skip' ? 'fa-ban' : 'fa-rotate-left';
+            const cardLabel = cardType.toUpperCase();
+
+            flyingCard.className = `card flying-card flipped ${glowClass}`;
+            flyingCard.style.left = `${startX}px`;
+            flyingCard.style.top = `${startY}px`;
+            flyingCard.style.transform = 'translate(0px, 0px) scale(1.0) rotate(0deg)';
+            flyingCard.style.zIndex = '999';
+
+            flyingCard.innerHTML = createCardHTML(cardDesignClass, iconClass, cardLabel);
+
+            overlay.appendChild(flyingCard);
+            flyingCard.getBoundingClientRect(); // Reflow
+
+            // 3. Fast power flight to center discard pile
+            const deltaX = destX - startX;
+            const deltaY = destY - startY;
+            const randomAngle = (Math.random() - 0.5) * 20;
+
+            flyingCard.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(1.08) rotate(${randomAngle}deg)`;
+
+            await sleep(480);
+
+            // 4. Land on Discard Pile & Trigger Impact FX
+            if (flyingCard.parentNode === overlay) {
+                overlay.removeChild(flyingCard);
+            }
+
+            renderDiscardTopCard(cardType, randomAngle);
+
+            // Trigger Shockwave & Table Shake
+            triggerShockwave(destX + discardRect.width / 2, destY + discardRect.height / 2, cardType);
+            tableEl.classList.add('table-rumble');
+            setTimeout(() => tableEl.classList.remove('table-rumble'), 300);
+
+            await sleep(150);
+
+            // 5. Trigger Power FX Logic
+            if (cardType === 'skip') {
+                await triggerSkipTargetAnimation('bob');
+                setStatus('Bot Bob Was Skipped!', 'normal');
+            } else if (cardType === 'reverse') {
+                toggleDirection();
+                await triggerReverseTableAnimation();
+                setStatus(`Direction Reversed to ${isClockwise ? 'Clockwise' : 'Counter-Clockwise'}!`, 'normal');
+            }
+
+            isAnimating = false;
+        }
+
+        function renderDiscardTopCard(cardType, angle) {
+            const container = document.getElementById('discard-stack-container');
+            document.getElementById('discard-label').style.display = 'none';
+            const cardClass = cardType === 'skip' ? 'skip-card' : 'reverse-card';
+            const iconClass = cardType === 'skip' ? 'fa-ban' : 'fa-rotate-left';
+            const label = cardType.toUpperCase();
+
+            container.innerHTML = `
+                <div class="card flipped" style="transform: rotate(${angle}deg)">
+                    ${createCardHTML(cardClass, iconClass, label)}
+                </div>
+            `;
+            discardPile.push({ type: cardType });
+            document.getElementById('discard-counter').innerText = `${discardPile.length} Discarded`;
+        }
+
+        function triggerShockwave(centerX, centerY, cardType) {
+            const overlay = document.getElementById('animation-overlay');
+            const wave = document.createElement('div');
+            const waveClass = cardType === 'skip' ? 'shockwave-skip' : 'shockwave-reverse';
+            wave.className = `shockwave ${waveClass}`;
+            wave.style.left = `${centerX}px`;
+            wave.style.top = `${centerY}px`;
+            overlay.appendChild(wave);
+            setTimeout(() => {
+                if (wave.parentNode === overlay) overlay.removeChild(wave);
+            }, 700);
+        }
+
+        function toggleDirection() {
+            isClockwise = !isClockwise;
+            const ring = document.getElementById('direction-ring');
+            const badge = document.getElementById('direction-badge');
+            if (isClockwise) {
+                ring.className = 'direction-ring rotate-cw flex items-center justify-between px-2 text-cyan-400 text-xs';
+                badge.innerText = 'CW ↻';
+            } else {
+                ring.className = 'direction-ring rotate-ccw flex items-center justify-between px-2 text-cyan-400 text-xs';
+                badge.innerText = 'CCW ↺';
+            }
+        }
+
+        async function triggerSkipTargetAnimation(botId) {
+            const playerContainer = document.getElementById(`player-container-${botId}`);
+            const stamp = document.createElement('div');
+            stamp.className = 'hologram-stamp';
+            stamp.innerHTML = `
+                <div class="stamp-badge-skip">
+                    <i class="fa-solid fa-ban text-xl"></i>
+                    <span>SKIPPED!</span>
+                </div>
+            `;
+
+            playerContainer.appendChild(stamp);
+            playerContainer.classList.add('skipped-active');
+
+            await sleep(1600);
+
+            stamp.style.transition = 'all 0.4s ease';
+            stamp.style.opacity = '0';
+            stamp.style.transform = 'translate(-50%, -50%) scale(1.5) rotate(0deg)';
+            playerContainer.classList.remove('skipped-active');
+
+            await sleep(400);
+            if (stamp.parentNode === playerContainer) {
+                playerContainer.removeChild(stamp);
+            }
+        }
+
+        async function triggerReverseTableAnimation() {
+            const centerArea = document.getElementById('discard-pile-anchor');
+            const stamp = document.createElement('div');
+            stamp.className = 'hologram-stamp';
+            stamp.innerHTML = `
+                <div class="stamp-badge-reverse">
+                    <i class="fa-solid fa-arrows-rotate text-xl animate-spin"></i>
+                    <span>REVERSED!</span>
+                </div>
+            `;
+
+            centerArea.appendChild(stamp);
+
+            await sleep(1400);
+
+            stamp.style.transition = 'all 0.4s ease';
+            stamp.style.opacity = '0';
+            stamp.style.transform = 'translate(-50%, -50%) scale(1.5)';
+
+            await sleep(400);
+            if (stamp.parentNode === centerArea) {
+                centerArea.removeChild(stamp);
+            }
+        }
+
+        function resetDemo() {
+            playerHand = [
+                { type: 'skip', color: 'rose' },
+                { type: 'reverse', color: 'cyan' },
+                { type: 'number', value: '7', suit: '♠', color: 'black' },
+                { type: 'number', value: '3', suit: '♥', color: 'red' }
+            ];
+            discardPile = [];
+            isClockwise = true;
+            document.getElementById('direction-ring').className = 'direction-ring rotate-cw flex items-center justify-between px-2 text-cyan-400 text-xs';
+            document.getElementById('direction-badge').innerText = 'CW ↻';
+            document.getElementById('discard-stack-container').innerHTML = '';
+            document.getElementById('discard-label').style.display = 'block';
+            document.getElementById('discard-counter').innerText = '0 Discarded';
+            renderUserHand();
+            renderBotHands();
+            setStatus('Ready to Play', 'normal');
+            isAnimating = false;
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        window.onload = function() {
+            renderUserHand();
+            renderBotHands();
+        };
+    </script>
+</body>
+</html>

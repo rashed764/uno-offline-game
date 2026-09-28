@@ -24,6 +24,9 @@ class GameEngine {
     this.unoCalledPlayers = new Set();
     this.hasDrawnThisTurn = false;
     this.lastDrawnCardId = null;
+    this.lastPlayedCard = null;
+    this.drawEventSequence = 0;
+    this.lastDrawEvent = null;
     this.canPass = false;
   }
 
@@ -96,6 +99,9 @@ class GameEngine {
     this.unoCalledPlayers.clear();
     this.hasDrawnThisTurn = false;
     this.lastDrawnCardId = null;
+    this.lastPlayedCard = null;
+    this.drawEventSequence = 0;
+    this.lastDrawEvent = null;
     this.canPass = false;
     this.isGameStarted = true;
 
@@ -218,6 +224,11 @@ class GameEngine {
     }
 
     const card = player.hand[index];
+    this.lastPlayedCard = {
+      playerId: String(playerId),
+      handIndex: index,
+      cardId: String(card.id)
+    };
 
     // Wild color validation
     const isWildCard = (card.color === 'wild' || card.value === 'wild' || card.value === 'wild_draw4');
@@ -344,7 +355,13 @@ class GameEngine {
     }
 
     const drawnCard = drawn[0];
+    const handIndex = player.hand.length;
     player.hand.push(drawnCard);
+    this.lastDrawEvent = {
+      eventId: ++this.drawEventSequence,
+      playerId: String(playerId),
+      handIndex
+    };
 
     // If player had 1 card and drew, clear UNO status
     if (player.hand.length > 1) {
@@ -477,6 +494,8 @@ class GameEngine {
       hasDrawnThisTurn: Boolean(this.hasDrawnThisTurn && isMyTurn),
       canDraw: Boolean(this.isGameStarted && isMyTurn && !this.hasDrawnThisTurn),
       lastDrawnCardId: isMyTurn ? this.lastDrawnCardId : null,
+      lastPlayedCard: this.lastPlayedCard ? { ...this.lastPlayedCard } : null,
+      lastDrawEvent: this.lastDrawEvent ? { ...this.lastDrawEvent } : null,
       canPass: Boolean(this.canPass && isMyTurn),
       isGameStarted: Boolean(this.isGameStarted),
       winner: this.winner ? { id: String(this.winner.id), name: String(this.winner.name) } : null
