@@ -413,9 +413,11 @@
       `;
     }
 
-    // Force strict standard dimensions (84px x 128px matching static cards)
-    const cardWidth = 84;
-    const cardHeight = 128;
+    // Dynamically read width and height of an actual reference card on the board (e.g. .card-3d or draw deck)
+    const referenceCard = document.querySelector('.card-3d') || document.querySelector('.deck-3d-stack') || fromElement;
+    const refRect = referenceCard ? referenceCard.getBoundingClientRect() : { width: 84, height: 128 };
+    const cardWidth = refRect.width || 84;
+    const cardHeight = refRect.height || 128;
 
     // Calculate source and target center positions
     const sourceX = fromRect.left + (fromRect.width - cardWidth) / 2;
@@ -584,7 +586,8 @@
     const playerDestMap = new Map();
 
     state.players.forEach(p => {
-      const isMe = (String(p.id) === String(myId) || !p.isBot);
+      // Every LAN player is human, so only this socket's player ID is our hand.
+      const isMe = String(p.id) === String(myId);
       if (isMe) {
         const fanEl = document.getElementById('player-cards-fan');
         playerDestMap.set(p.id, fanEl || drawDeckEl);
@@ -600,7 +603,7 @@
     // 1. Deal 7 cards to each player
     for (let cardRound = 0; cardRound < totalCardsPerPlayer; cardRound++) {
       state.players.forEach((p, pIdx) => {
-        const isMe = (String(p.id) === String(myId) || !p.isBot);
+        const isMe = String(p.id) === String(myId);
         const destEl = playerDestMap.get(p.id) || drawDeckEl;
         const targetRot = getTargetRotationForPlayer(p.id, state.players, myId);
         animationQueue.push({
@@ -667,7 +670,11 @@
                 const cardEls = Array.from(handContainer.querySelectorAll('.card-3d'));
                 const totalCards = cardEls.length;
                 const maxSpreadAngle = 40;
-                const spreadWidth = totalCards > 1 ? Math.min(380, totalCards * 40) : 0;
+                const availableWidth = handContainer.clientWidth || 380;
+                const cardWidth = cardEls[0] ? cardEls[0].getBoundingClientRect().width : 64;
+                const spreadWidth = totalCards > 1
+                  ? Math.min(380, totalCards * 40, Math.max(0, availableWidth - cardWidth - 16))
+                  : 0;
 
                 cardEls.forEach((cardEl, idx) => {
                   const angle = totalCards > 1 ? - (maxSpreadAngle / 2) + (idx * (maxSpreadAngle / (totalCards - 1))) : 0;
@@ -853,6 +860,7 @@
       handContainer.innerHTML = '';
       const cardsToRender = state.myHand;
       const totalCards = cardsToRender.length;
+      const renderedCards = [];
 
       cardsToRender.forEach((card, idx) => {
         if (!card) return;
@@ -866,32 +874,31 @@
           cardEl.classList.add('just-drawn');
         }
 
-        const maxSpreadAngle = 40;
-        const angle = totalCards > 1
-          ? - (maxSpreadAngle / 2) + (idx * (maxSpreadAngle / (totalCards - 1)))
-          : 0;
-
-        const spreadWidth = totalCards > 1 ? Math.min(380, totalCards * 40) : 0;
-        const targetX = totalCards > 1
-          ? - (spreadWidth / 2) + (idx * (spreadWidth / (totalCards - 1)))
-          : 0;
-        const targetY = Math.abs(angle) * 0.8;
-        const targetRot = angle;
-
-        cardEl.style.setProperty('--x', targetX);
-        cardEl.style.setProperty('--y', targetY);
-        cardEl.style.setProperty('--angle', targetRot);
-        cardEl.style.setProperty('--index', idx);
-        cardEl.style.setProperty('--i', idx);
-        cardEl.style.position = 'absolute';
-        cardEl.style.transformOrigin = 'bottom center';
-        cardEl.style.transform = `translateX(${targetX}px) translateY(${targetY}px) rotateZ(${targetRot}deg) scale(1)`;
-
         cardEl.addEventListener('click', () => {
           handleCardClick(card, cardEl, idx);
         });
 
         handContainer.appendChild(cardEl);
+        renderedCards.push(cardEl);
+      });
+
+      const availableWidth = handContainer.clientWidth || 380;
+      const cardWidth = renderedCards[0]?.getBoundingClientRect().width || 64;
+      const spreadWidth = totalCards > 1
+        ? Math.min(380, totalCards * 40, Math.max(0, availableWidth - cardWidth - 16))
+        : 0;
+      renderedCards.forEach((cardEl, idx) => {
+        const angle = totalCards > 1 ? -20 + idx * (40 / (totalCards - 1)) : 0;
+        const targetX = totalCards > 1 ? -spreadWidth / 2 + idx * (spreadWidth / (totalCards - 1)) : 0;
+        const targetY = Math.abs(angle) * 0.8;
+        cardEl.style.setProperty('--x', targetX);
+        cardEl.style.setProperty('--y', targetY);
+        cardEl.style.setProperty('--angle', angle);
+        cardEl.style.setProperty('--index', idx);
+        cardEl.style.setProperty('--i', idx);
+        cardEl.style.position = 'absolute';
+        cardEl.style.transformOrigin = 'bottom center';
+        cardEl.style.transform = `translateX(${targetX}px) translateY(${targetY}px) rotateZ(${angle}deg) scale(1)`;
       });
     }
   }
@@ -973,7 +980,7 @@
     const countEl = document.getElementById(`opp-${position}-count`);
     const cardCount = typeof player.cardCount === 'number'
       ? player.cardCount
-      : (Array.isArray(player.hand) ? player.hand.length : (player.handLength || 0));
+      : (Number.isFinite(player.cardCount) ? player.cardCount : (Array.isArray(player.hand) ? player.hand.length : (player.handLength || 0)));
 
     if (countEl && !window.isDealingOrFanning) {
       countEl.textContent = cardCount;

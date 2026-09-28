@@ -466,7 +466,8 @@ class GameEngine {
           name: String(p.name),
           cardCount: count,
           handLength: count,
-          hand: (p.hand && Array.isArray(p.hand)) ? [...p.hand] : [],
+          // Opponent card identities are private; only myHand is sent above.
+          hand: String(p.id) === String(playerId) && Array.isArray(p.hand) ? [...p.hand] : [],
           isBot: Boolean(p.isBot),
           isHost: Boolean(p.isHost)
         };

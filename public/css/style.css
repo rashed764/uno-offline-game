@@ -112,17 +112,20 @@ html {
 
 .card-3d {
   width: calc(84px * var(--card-scale));
-  height: calc(128px * var(--card-scale));
+  height: auto;
+  aspect-ratio: 210 / 332;
 }
 
 .deck-3d-stack {
   width: calc(84px * var(--card-scale));
-  height: calc(128px * var(--card-scale));
+  height: auto;
+  aspect-ratio: 210 / 332;
 }
 
 .player-cards-fan-layout .card-3d {
   width: calc(84px * var(--card-scale)) !important;
-  height: calc(128px * var(--card-scale)) !important;
+  height: auto !important;
+  aspect-ratio: 210 / 332;
 }
 
 .opponent-card {
@@ -158,7 +161,7 @@ html {
   display: flex;
   justify-content: center;
   align-items: center;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .app-container {
@@ -171,7 +174,7 @@ html {
   padding: 20px;
   gap: 15px;
   z-index: 2;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .app-container-fullscreen {
@@ -181,7 +184,7 @@ html {
   gap: 10px !important;
   width: 1280px;
   height: 800px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 /* ==========================================================================
@@ -871,25 +874,43 @@ input[type="text"]:focus {
   height: 280px !important;
   aspect-ratio: 1 / 1 !important;
   transform: translate(-50%, -50%);
-  border: 2.5px dashed rgba(255, 204, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.13);
   border-radius: 50% !important;
   pointer-events: none;
   z-index: 1;
-  box-shadow: 0 0 20px rgba(255, 204, 0, 0.2), inset 0 0 20px rgba(255, 204, 0, 0.15);
+  box-shadow: 0 0 28px rgba(255, 204, 0, 0.12), inset 0 0 24px rgba(255, 204, 0, 0.08);
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.5s ease;
 }
 
+.direction-ring-3d::before,
+.direction-ring-3d::after {
+  content: "";
+  position: absolute;
+  inset: 9px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  opacity: 0.24;
+}
+
+.direction-ring-3d::after {
+  inset: 18px;
+  border-style: dashed;
+  opacity: 0.32;
+}
+
 .direction-ring-3d.clockwise {
-  border-color: rgba(34, 204, 34, 0.65);
+  color: var(--uno-green);
+  border-color: rgba(34, 204, 34, 0.4);
   box-shadow: 0 0 25px rgba(34, 204, 34, 0.3), inset 0 0 25px rgba(34, 204, 34, 0.2);
   animation: spinClockwise 10s linear infinite;
 }
 
 .direction-ring-3d.counter-clockwise {
-  border-color: rgba(255, 51, 51, 0.65);
+  color: var(--uno-red);
+  border-color: rgba(255, 51, 51, 0.4);
   box-shadow: 0 0 25px rgba(255, 51, 51, 0.3), inset 0 0 25px rgba(255, 51, 51, 0.2);
   animation: spinCounterClockwise 10s linear infinite;
 }
@@ -911,6 +932,10 @@ input[type="text"]:focus {
   text-shadow: 0 0 12px var(--uno-red);
 }
 
+.direction-ring-3d.counter-clockwise .dir-arrow i {
+  transform: scaleX(-1);
+}
+
 .direction-ring-3d .arrow-1 { top: -14px; left: 50%; transform: translateX(-50%); }
 .direction-ring-3d .arrow-2 { right: -14px; top: 50%; transform: translateY(-50%) rotate(90deg); }
 .direction-ring-3d .arrow-3 { bottom: -14px; left: 50%; transform: translateX(-50%) rotate(180deg); }
@@ -922,13 +947,14 @@ input[type="text"]:focus {
 }
 
 @keyframes spinCounterClockwise {
-  from { transform: translate(-50%, -50%) rotate(360deg); }
+  from { transform: translate(-50%, -50%) rotate(0deg); }
   to { transform: translate(-50%, -50%) rotate(-360deg); }
 }
 
 .deck-3d-stack {
   width: 84px;
-  height: 128px;
+  height: auto;
+  aspect-ratio: 210 / 332;
   position: relative;
 }
 
@@ -974,70 +1000,78 @@ input[type="text"]:focus {
    ========================================================================== */
 .card-3d {
   width: 84px;
-  height: 128px;
-  border-radius: var(--radius-md);
+  height: auto;
+  aspect-ratio: 210 / 332;
+  container-type: inline-size;
+  font-size: clamp(10px, 1.15vw, 16px);
+  flex: 0 0 auto;
+  border-radius: 0.48em;
   position: relative;
   transform-style: preserve-3d;
   user-select: none;
-  border: 4px solid #ffffff;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+  border: 0;
+  background: var(--card-theme-color, #222);
+  box-shadow: 0 0.12em 0.35em rgba(0,0,0,0.38);
   box-sizing: border-box;
 }
 
 .card-inner {
   position: absolute;
-  inset: 0;
-  border-radius: 6px;
+  inset: 5%;
+  border-radius: 0.38em;
   background: var(--card-theme-color, #222);
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   overflow: hidden;
-  border: 1.5px solid #111;
+  border: 0;
 }
 
 .card-inner-ellipse {
   position: absolute;
-  top: 10px;
-  left: 6px;
-  right: 6px;
-  bottom: 10px;
-  background: #ffffff;
+  inset: 9% 7%;
+  background: transparent;
+  border: 0.085em solid #fffffd;
   border-radius: 50%;
-  transform: rotate(-18deg);
+  transform: scale(.9, .84) skewX(-22.5deg);
   display: flex;
   justify-content: center;
   align-items: center;
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.25);
+  box-shadow: none;
 }
 
 .card-center-val {
   font-family: var(--font-logo);
-  font-size: 2.9rem;
-  font-weight: 700;
-  color: var(--card-theme-color);
-  transform: rotate(18deg);
-  text-shadow: 2px 2px 0px rgba(0,0,0,0.3);
+  font-size: 2.9em;
+  font-size: 58cqi;
+  line-height: .9;
+  font-weight: 800;
+  color: #fffffd;
+  transform: skewX(22.5deg);
+  text-shadow: -0.035em -0.035em 0 #171717, 0.035em 0.035em 0 #171717,
+    0 0.075em 0.04em rgba(0,0,0,.55);
 }
 
 .card-corner {
   position: absolute;
   font-family: var(--font-logo);
-  font-size: 1rem;
+  font-size: 1em;
+  font-size: 15cqi;
+  line-height: 1;
   font-weight: 700;
-  color: #fff;
-  text-shadow: 1px 1px 1px rgba(0,0,0,0.5);
+  color: #fffffd;
+  text-shadow: 0.05em 0.05em 0 #171717, 0 0.1em 0.1em rgba(0,0,0,.45);
 }
 
 .card-corner.top-left {
-  top: 6px;
-  left: 6px;
+  top: 7%;
+  left: 9%;
 }
 
 .card-corner.bottom-right {
-  bottom: 6px;
-  right: 6px;
+  bottom: 7%;
+  right: 9%;
   transform: rotate(180deg);
 }
 
@@ -1047,40 +1081,45 @@ input[type="text"]:focus {
 .card-yellow { --card-theme-color: var(--uno-yellow); }
 .card-black {
   --card-theme-color: var(--uno-black);
-  border-color: #f5f5f5;
 }
 
 .card-inner-ellipse i {
-  transform: rotate(18deg);
-  font-size: 1.9rem;
-  color: var(--card-theme-color);
-  text-shadow: 1.5px 1.5px 0px rgba(0,0,0,0.35);
+  transform: skewX(22.5deg);
+  font-size: 1.9em;
+  font-size: 43cqi;
+  color: #fffffd;
+  text-shadow: 0.05em 0.05em 0 #171717, 0 0.1em 0.1em rgba(0,0,0,.45);
 }
 
 .card-back {
-  background: #000;
-  border: 4px solid #fff;
+  --card-theme-color: #191f1f;
+  background: #191f1f;
 }
 
 .card-back .card-inner {
-  background: #111;
+  background: #191f1f;
 }
 
 .card-back .card-inner-ellipse {
-  background: var(--uno-red);
-  transform: rotate(-22deg);
+  inset: 8% 4%;
+  border: 0;
+  background: #cb0323;
+  transform: scale(.875) skewX(-22.5deg);
 }
 
 .card-back .card-inner-ellipse::after {
   content: 'UNO';
   font-family: var(--font-logo);
-  font-size: 1.6rem;
+  font-size: 2.4em;
+  font-size: 48cqi;
+  line-height: 1;
   font-weight: 800;
   font-style: italic;
-  color: var(--uno-yellow);
-  transform: rotate(22deg);
-  text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
-  letter-spacing: -1.5px;
+  color: #e4c713;
+  transform: skewX(22.5deg) rotate(-15deg) translateX(2%);
+  text-shadow: 0.035em 0.035em 0 #191f1f, -0.035em -0.035em 0 #fffffd,
+    0 0.08em 0.08em rgba(0,0,0,.55);
+  letter-spacing: -0.06em;
 }
 
 /* ==========================================================================
@@ -1650,42 +1689,51 @@ input[type="text"]:focus {
 
   .deck-3d-stack {
     width: 68px;
-    height: 104px;
+    height: auto;
+    aspect-ratio: 210 / 332;
   }
 
   .card-3d {
     width: 68px;
-    height: 104px;
+    height: auto;
+    aspect-ratio: 210 / 332;
+    font-size: clamp(8px, 2.2vw, 14px);
     border-width: 3px;
-    border-radius: 8px;
+    border-radius: 0.48em;
+  }
+
+  .ghost-card-anim {
+    width: 68px !important;
+    height: auto !important;
+    aspect-ratio: 210 / 332;
+    font-size: clamp(8px, 2.2vw, 14px);
+    border-width: 3px !important;
+    border-radius: 0.48em !important;
   }
 
   .card-center-val {
-    font-size: 2.1rem;
+    font-size: 58cqi;
     font-weight: 700;
   }
 
   .card-corner {
-    font-size: 0.8rem;
+    font-size: 15cqi;
     font-weight: 700;
-    top: 4px;
-    left: 4px;
+    top: 7%;
+    left: 9%;
   }
 
   .card-corner.bottom-right {
-    bottom: 4px;
-    right: 4px;
+    bottom: 7%;
+    right: 9%;
   }
 
   .card-inner-ellipse {
-    top: 8px;
-    left: 4px;
-    right: 4px;
-    bottom: 8px;
+    inset: 9% 7%;
   }
 
   .card-inner-ellipse i {
-    font-size: 1.4rem;
+    font-size: 43cqi;
   }
 
   .deck-overlay-text {
@@ -1724,8 +1772,9 @@ input[type="text"]:focus {
   }
 
   .player-cards-fan-layout .card-3d {
-    width: 64px !important;
-    height: 98px !important;
+    width: clamp(40px, 11vw, 64px) !important;
+    height: auto !important;
+    aspect-ratio: 210 / 332;
     cursor: pointer;
   }
 
@@ -1906,49 +1955,13 @@ input[type="range"] {
   border-radius: var(--radius-md);
   box-sizing: border-box;
   object-fit: contain;
-  width: 84px;
-  height: 128px;
+  width: calc(84px * var(--card-scale));
+  height: auto;
+  aspect-ratio: 210 / 332;
+  container-type: inline-size;
+  font-size: clamp(10px, 1.15vw, 16px);
+  border: 0;
 }
 
-.ghost-card-anim.card-back {
-  background: #000;
-  border: 4px solid #fff;
-}
-
-.ghost-card-anim.card-back .card-inner {
-  background: #111;
-  position: absolute;
-  inset: 0;
-  border-radius: 6px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  overflow: hidden;
-  border: 1.5px solid #111;
-}
-
-.ghost-card-anim.card-back .card-inner-ellipse {
-  position: absolute;
-  top: 10px;
-  left: 6px;
-  right: 6px;
-  bottom: 10px;
-  background: var(--uno-red);
-  border-radius: 50%;
-  transform: rotate(-22deg);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.ghost-card-anim.card-back .card-inner-ellipse::after {
-  content: 'UNO';
-  font-family: var(--font-logo);
-  font-size: 1.4rem;
-  font-weight: 800;
-  font-style: italic;
-  color: var(--uno-yellow);
-  transform: rotate(22deg);
-  text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
-  letter-spacing: -1.5px;
-}
+/* Ghost cards deliberately share the same .card-back markup and rules as settled
+   cards. Separate ghost back artwork caused a visible design jump after dealing. */

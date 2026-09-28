@@ -1,3 +1,7 @@
 Step 1: Check project structure, verify dependencies in package.json (express, socket.io, localtunnel), and ensure script "start:public" is present. (Completed)
 Step 2: Create startup script scripts/host-public.js to launch server on port 3000 and establish localtunnel with bold colored console logs for public game URL. (Completed)
 Step 3: Verify execution and self-test local & public startup script. (Completed)
+Step 4: Update .ghost-card-anim in public/css/style.css for responsive scaling. (Completed)
+Step 5: Update animateCardFlight in public/js/game.js to dynamically measure reference card dimensions via getBoundingClientRect(). (Completed)
+Step 6: Update animateCardFlight in public/js/game.js to clone exact card DOM structure/classes using create3DCardElement. (In Progress)
+Step 7: Update .ghost-card-anim in public/css/style.css to unify styling rules with .card-3d. (In Progress)
