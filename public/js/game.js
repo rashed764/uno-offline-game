@@ -857,49 +857,59 @@
     // Render active player hand (3D Fan layout)
     const handContainer = document.getElementById('player-cards-fan');
     if (handContainer) {
-      handContainer.innerHTML = '';
       const cardsToRender = state.myHand;
-      const totalCards = cardsToRender.length;
-      const renderedCards = [];
+      const handSignature = JSON.stringify(cardsToRender.map(card => card
+        ? [String(card.id ?? ''), card.color ?? '', card.value ?? '']
+        : null));
 
-      cardsToRender.forEach((card, idx) => {
-        if (!card) return;
-        const cardEl = create3DCardElement(card, idx, 0, false);
+      // Other players' moves update the whole game snapshot, but do not change
+      // this player's hand. Keep existing card DOM in that case so the hand
+      // does not collapse and fan out again on every opponent move.
+      if (handContainer.dataset.handSignature !== handSignature) {
+        handContainer.dataset.handSignature = handSignature;
+        handContainer.innerHTML = '';
+        const totalCards = cardsToRender.length;
+        const renderedCards = [];
 
-        if (appState.selectedCardId && String(card.id) === String(appState.selectedCardId)) {
-          cardEl.classList.add('selected');
-        }
+        cardsToRender.forEach((card, idx) => {
+          if (!card) return;
+          const cardEl = create3DCardElement(card, idx, 0, false);
 
-        if (state.lastDrawnCardId && String(card.id) === String(state.lastDrawnCardId)) {
-          cardEl.classList.add('just-drawn');
-        }
+          if (appState.selectedCardId && String(card.id) === String(appState.selectedCardId)) {
+            cardEl.classList.add('selected');
+          }
 
-        cardEl.addEventListener('click', () => {
-          handleCardClick(card, cardEl, idx);
+          if (state.lastDrawnCardId && String(card.id) === String(state.lastDrawnCardId)) {
+            cardEl.classList.add('just-drawn');
+          }
+
+          cardEl.addEventListener('click', () => {
+            handleCardClick(card, cardEl, idx);
+          });
+
+          handContainer.appendChild(cardEl);
+          renderedCards.push(cardEl);
         });
 
-        handContainer.appendChild(cardEl);
-        renderedCards.push(cardEl);
-      });
-
-      const availableWidth = handContainer.clientWidth || 380;
-      const cardWidth = renderedCards[0]?.getBoundingClientRect().width || 64;
-      const spreadWidth = totalCards > 1
-        ? Math.min(380, totalCards * 40, Math.max(0, availableWidth - cardWidth - 16))
-        : 0;
-      renderedCards.forEach((cardEl, idx) => {
-        const angle = totalCards > 1 ? -20 + idx * (40 / (totalCards - 1)) : 0;
-        const targetX = totalCards > 1 ? -spreadWidth / 2 + idx * (spreadWidth / (totalCards - 1)) : 0;
-        const targetY = Math.abs(angle) * 0.8;
-        cardEl.style.setProperty('--x', targetX);
-        cardEl.style.setProperty('--y', targetY);
-        cardEl.style.setProperty('--angle', angle);
-        cardEl.style.setProperty('--index', idx);
-        cardEl.style.setProperty('--i', idx);
-        cardEl.style.position = 'absolute';
-        cardEl.style.transformOrigin = 'bottom center';
-        cardEl.style.transform = `translateX(${targetX}px) translateY(${targetY}px) rotateZ(${angle}deg) scale(1)`;
-      });
+        const availableWidth = handContainer.clientWidth || 380;
+        const cardWidth = renderedCards[0]?.getBoundingClientRect().width || 64;
+        const spreadWidth = totalCards > 1
+          ? Math.min(380, totalCards * 40, Math.max(0, availableWidth - cardWidth - 16))
+          : 0;
+        renderedCards.forEach((cardEl, idx) => {
+          const angle = totalCards > 1 ? -20 + idx * (40 / (totalCards - 1)) : 0;
+          const targetX = totalCards > 1 ? -spreadWidth / 2 + idx * (spreadWidth / (totalCards - 1)) : 0;
+          const targetY = Math.abs(angle) * 0.8;
+          cardEl.style.setProperty('--x', targetX);
+          cardEl.style.setProperty('--y', targetY);
+          cardEl.style.setProperty('--angle', angle);
+          cardEl.style.setProperty('--index', idx);
+          cardEl.style.setProperty('--i', idx);
+          cardEl.style.position = 'absolute';
+          cardEl.style.transformOrigin = 'bottom center';
+          cardEl.style.transform = `translateX(${targetX}px) translateY(${targetY}px) rotateZ(${angle}deg) scale(1)`;
+        });
+      }
     }
   }
 
