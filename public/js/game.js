@@ -560,6 +560,11 @@
   function renderDiscardPile(topCard) {
     const discardPileContainer = document.getElementById('discard-pile-3d');
     if (!discardPileContainer) return;
+    const cardSignature = topCard
+      ? JSON.stringify([String(topCard.id ?? ''), topCard.color ?? '', topCard.value ?? ''])
+      : 'empty';
+    if (discardPileContainer.dataset.cardSignature === cardSignature) return;
+    discardPileContainer.dataset.cardSignature = cardSignature;
     discardPileContainer.innerHTML = '';
     if (topCard) {
       for (let i = 0; i < 2; i++) {
@@ -734,6 +739,13 @@
                 appState.isDealing = false;
                 appState.isDealingOrFanning = false;
 
+                // The deal animation has already built and fanned the exact
+                // hand DOM. Mark it as rendered so the completion snapshot
+                // does not tear it down and recreate it (visible as a blink).
+                if (handContainer && Array.isArray(state.myHand)) {
+                  handContainer.dataset.handSignature = getHandSignature(state.myHand);
+                }
+
                 if (typeof onComplete === 'function') {
                   onComplete();
                 }
@@ -743,6 +755,12 @@
         }, item.targetRotation);
       }, item.delay);
     });
+  }
+
+  function getHandSignature(cards) {
+    return JSON.stringify(cards.map(card => card
+      ? [String(card.id ?? ''), card.color ?? '', card.value ?? '']
+      : null));
   }
 
   function getOpponentSeatElementForPlayer(playerId, players, myId) {
@@ -858,9 +876,7 @@
     const handContainer = document.getElementById('player-cards-fan');
     if (handContainer) {
       const cardsToRender = state.myHand;
-      const handSignature = JSON.stringify(cardsToRender.map(card => card
-        ? [String(card.id ?? ''), card.color ?? '', card.value ?? '']
-        : null));
+      const handSignature = getHandSignature(cardsToRender);
 
       // Other players' moves update the whole game snapshot, but do not change
       // this player's hand. Keep existing card DOM in that case so the hand
@@ -1023,8 +1039,15 @@
 
     const stackContainer = document.getElementById(`opp-${position}-cards`);
     if (stackContainer) {
-      stackContainer.innerHTML = '';
-      for (let i = 0; i < cardCount; i++) {
+      let existingCount = stackContainer.querySelectorAll('.card-3d').length;
+      // Keep the already-fanned cards when only turn metadata changed. The
+      // end-of-deal snapshot has the same counts as the animated bundles, so
+      // replacing those nodes here caused a visible one-frame flash.
+      if (existingCount !== cardCount) {
+        stackContainer.innerHTML = '';
+        existingCount = 0;
+      }
+      for (let i = existingCount; i < cardCount; i++) {
         const cardEl = create3DCardElement(null, i, 0, true);
 
         const maxSpreadAngle = 35;
