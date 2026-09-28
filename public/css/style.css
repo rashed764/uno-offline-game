@@ -1,4 +1,4 @@
-/* ==========================================================================
+﻿/* ==========================================================================
    Dedicated Action Control Dock (Bottom-Right Inner Felt, No Jumping)
    ========================================================================== */
 .action-dock {
@@ -1965,3 +1965,34 @@ input[type="range"] {
 
 /* Ghost cards deliberately share the same .card-back markup and rules as settled
    cards. Separate ghost back artwork caused a visible design jump after dealing. */
+.offline-icons .fa-solid::before { font-family: "Segoe UI Symbol", "Segoe UI Emoji", sans-serif !important; font-weight: 700; }
+.offline-icons .fa-mobile-screen-button::before { content: "\1F4F1 "; }
+.offline-icons .fa-gamepad::before { content: "\1F3AE "; }
+.offline-icons .fa-user-astronaut::before, .offline-icons .fa-user::before { content: "\1F464 "; }
+.offline-icons .fa-robot::before { content: "\1F916 "; }
+.offline-icons .fa-house-laptop::before, .offline-icons .fa-house::before { content: "\1F3E0 "; }
+.offline-icons .fa-network-wired::before { content: "\1F310 "; }
+.offline-icons .fa-sliders::before { content: "\2637 "; }
+.offline-icons .fa-key::before { content: "\1F511 "; }
+.offline-icons .fa-arrow-right-to-bracket::before, .offline-icons .fa-right-from-bracket::before { content: "\21AA "; }
+.offline-icons .fa-circle-info::before { content: "\24D8 "; }
+.offline-icons .fa-users::before { content: "\1F465 "; }
+.offline-icons .fa-circle-play::before, .offline-icons .fa-play::before { content: "\25B6 "; }
+.offline-icons .fa-bars::before { content: "\2630 "; }
+.offline-icons .fa-clone::before { content: "\25A3 "; }
+.offline-icons .fa-chevron-right::before { content: "\203A "; }
+.offline-icons .fa-palette::before { content: "\1F3A8 "; }
+.offline-icons .fa-trophy::before { content: "\1F3C6 "; }
+.offline-icons .fa-arrow-rotate-right::before, .offline-icons .fa-arrows-rotate::before { content: "\21BB "; }
+.offline-icons .fa-xmark::before { content: "\2715 "; }
+.offline-icons .fa-volume-high::before { content: "\1F50A "; }
+.offline-icons .fa-volume-xmark::before { content: "\1F507 "; }
+.offline-icons .fa-table-tennis-paddle-ball::before { content: "\25C9 "; }
+.offline-icons .fa-font::before { content: "A"; }
+.offline-icons .fa-rotate-left::before { content: "\21B6 "; }
+.offline-icons .fa-check::before { content: "\2713 "; }
+.offline-icons .fa-circle-exclamation::before, .offline-icons .fa-triangle-exclamation::before { content: "\26A0 "; }
+.offline-icons .fa-circle-question::before { content: "?"; }
+.offline-icons .fa-ban::before { content: "\2298 "; }
+.offline-icons .fa-wand-magic-sparkles::before { content: "\2726 "; }
+.offline-icons .fa-bell::before { content: "\1F514 "; }
