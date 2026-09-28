@@ -1952,7 +1952,7 @@ input[type="range"] {
   will-change: transform;
   transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1);
   box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6), 0 0 20px rgba(255, 204, 0, 0.4);
-  border-radius: var(--radius-md);
+  border-radius: 0.48em;
   box-sizing: border-box;
   object-fit: contain;
   width: calc(84px * var(--card-scale));
