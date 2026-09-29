@@ -308,6 +308,7 @@
     }
 
     renderGame(gameState);
+    maintainDrawTwoTargetVisual();
     animateRemoteDiscard(previousState, gameState, remoteDiscardSource);
     animateRemoteDraw(remoteDrawEvent, gameState);
   });
@@ -328,6 +329,7 @@
     }
 
     renderGame(gameState);
+    maintainDrawTwoTargetVisual();
     animateRemoteDiscard(previousState, gameState, remoteDiscardSource);
     animateRemoteDraw(remoteDrawEvent, gameState);
   });
@@ -1220,6 +1222,32 @@
     return { animation: cardAnimation, trail };
   }
 
+  function animateDrawTwoSlamFlight(ghost, overlay, flight) {
+    const trail = document.createElement('div');
+    trail.className = 'draw2-slam-trail';
+    const flightAngle = Math.atan2(flight.dy, flight.dx) * 180 / Math.PI;
+    const trailLength = Math.max(48, Math.hypot(flight.dx, flight.dy));
+    Object.assign(trail.style, {
+      left: `${flight.startX + flight.width / 2}px`,
+      top: `${flight.startY + flight.height / 2}px`,
+      width: `${trailLength}px`,
+      transform: `rotate(${flightAngle}deg) scaleX(.08)`
+    });
+    overlay.appendChild(trail);
+    ghost.style.transition = 'none';
+    const animation = ghost.animate([
+      { transform: flight.startTransform, offset: 0, easing: 'cubic-bezier(.18,.72,.25,1)' },
+      { transform: `translate3d(${flight.dx * .76}px,${flight.dy * .76 - 12}px,0) scale(1.04) rotate(-10deg)`, offset: .72, easing: 'cubic-bezier(.72,0,.96,.35)' },
+      { transform: `translate3d(${flight.dx}px,${flight.dy}px,0) scale(1.1) rotate(4deg)`, offset: .9, easing: 'ease-out' },
+      { transform: flight.endTransform, offset: 1 }
+    ], { duration: 420, fill: 'forwards' });
+    trail.animate([
+      { opacity: .85, transform: `rotate(${flightAngle}deg) scaleX(.08)` },
+      { opacity: 0, transform: `rotate(${flightAngle}deg) scaleX(1)` }
+    ], { duration: 380, easing: 'ease-out', fill: 'forwards' });
+    return { animation, trail };
+  }
+
   function playReverseImpact(state) {
     if (!state) return;
     const played = state.lastPlayedCard;
@@ -1416,8 +1444,10 @@
     ghost.classList.add('discard-flight-ghost');
     const isSkip = String(card.value).toLowerCase() === 'skip';
     const isReverse = String(card.value).toLowerCase() === 'reverse';
+    const isDrawTwo = String(card.value).toLowerCase() === 'draw2';
     if (isSkip) ghost.classList.add('power-card-glow');
     if (isReverse) ghost.classList.add('reverse-flight-ghost');
+    if (isDrawTwo) ghost.classList.add('draw2-slam-ghost');
     ghost.classList.remove('selected', 'just-drawn');
     Object.assign(ghost.style, {
       position: 'absolute', left: `${startX}px`, top: `${startY}px`,
@@ -1432,7 +1462,8 @@
 
     const beforeState = appState.latestServerState;
     const pending = { card, el: ghost, state: null, landed: false, hand, rotation: randomAngle,
-      skipTargetId: isSkip ? getSkippedPlayerId(beforeState) : null };
+      skipTargetId: isSkip ? getSkippedPlayerId(beforeState) : null,
+      drawTwoTargetId: isDrawTwo ? getSkippedPlayerId(beforeState) : null };
     window.pendingDiscardFlight = pending;
     const land = () => {
       if (window.pendingDiscardFlight !== pending || pending.landed) return;
@@ -1447,13 +1478,21 @@
         endTransform: `translate3d(${endCenterX - sourceCenterX}px,${endCenterY - sourceCenterY}px,0) scale(1) rotate(${randomAngle}deg)`
       });
       pending.flight.animation.finished.then(land).catch(() => {});
+    } else if (isDrawTwo) {
+      const endTransform = `translate3d(${endCenterX - sourceCenterX}px,${endCenterY - sourceCenterY}px,0) scale(1) rotate(${randomAngle}deg)`;
+      pending.flight = animateDrawTwoSlamFlight(ghost, overlay, {
+        startX, startY, width: targetWidth, height: targetHeight,
+        dx: endCenterX - sourceCenterX, dy: endCenterY - sourceCenterY,
+        startTransform: ghost.style.transform, endTransform
+      });
+      pending.flight.animation.finished.then(land).catch(() => {});
     } else {
       requestAnimationFrame(() => {
         ghost.style.transform = `translate3d(${endCenterX - sourceCenterX}px,${endCenterY - sourceCenterY}px,0) scale(1) rotate(${randomAngle}deg)`;
       });
     }
     ghost.addEventListener('transitionend', land, { once: true });
-    setTimeout(land, isReverse ? 720 : 500);
+    setTimeout(land, isReverse ? 720 : isDrawTwo ? 470 : 500);
     setTimeout(() => {
       if (window.pendingDiscardFlight === pending) cancelDiscardFlight();
     }, 5000);
@@ -1489,6 +1528,10 @@
     renderGame(pending.state, pending.rotation);
     if (pending.skipTargetId != null) playSkipImpact(pending.skipTargetId, pending.state);
     if (String(pending.card.value).toLowerCase() === 'reverse') playReverseImpact(pending.state);
+    if (pending.drawTwoTargetId != null) {
+      const incoming = hideDrawTwoTargetCards(pending.drawTwoTargetId, pending.state);
+      playDrawTwoImpact(pending.drawTwoTargetId, pending.state, incoming);
+    }
   }
 
   function getSkippedPlayerId(state) {
@@ -1534,6 +1577,199 @@
     setTimeout(() => stamp.remove(), 1550);
     setTimeout(() => seat.classList.remove('skip-target-hit'), 1450);
     setTimeout(() => table?.classList.remove('skip-table-rumble'), 500);
+  }
+
+  function hideDrawTwoTargetCards(playerId, state) {
+    const player = state.players?.find(item => String(item.id) === String(playerId));
+    if (!player) return null;
+    const isMe = String(playerId) === String(appState.myPlayerId || socket.id);
+    const seatName = isMe ? null : getOpponentPositionName(playerId, state.players, appState.myPlayerId || socket.id);
+    const container = isMe
+      ? document.getElementById('player-cards-fan')
+      : (seatName ? document.getElementById(`opp-${seatName}-cards`) : null);
+    if (!container) return null;
+    const cards = Array.from(container.querySelectorAll('.card-3d'));
+    const startIndex = Math.max(0, Number(player.cardCount || 0) - 2);
+    const incomingCards = cards.slice(startIndex, startIndex + 2);
+    incomingCards.forEach(card => { card.style.visibility = 'hidden'; });
+    const countEl = isMe ? null : document.getElementById(`opp-${seatName}-count`);
+    const currentCount = countEl ? Number(countEl.textContent) : null;
+    if (countEl && Number.isFinite(currentCount)) countEl.textContent = String(Math.max(0, Number(player.cardCount) - 2));
+    const incoming = {
+      cards: incomingCards,
+      countEl,
+      finalCount: Number(player.cardCount || 0),
+      oldCount: Number.isFinite(currentCount) ? String(currentCount) : null,
+      restored: false
+    };
+    window.pendingDrawTwoVisual = incoming;
+    return incoming;
+  }
+
+  function maintainDrawTwoTargetVisual() {
+    const incoming = window.pendingDrawTwoVisual;
+    if (!incoming || incoming.restored) return;
+    incoming.cards.forEach(card => {
+      if (card.isConnected) card.style.visibility = 'hidden';
+    });
+    if (incoming.countEl && incoming.oldCount != null) incoming.countEl.textContent = incoming.oldCount;
+  }
+
+  function restoreDrawTwoTargetCards(incoming) {
+    if (!incoming || incoming.restored) return;
+    incoming.restored = true;
+    incoming.cards.forEach(card => {
+      if (card.isConnected) card.style.visibility = '';
+    });
+    if (incoming.countEl) incoming.countEl.textContent = String(incoming.finalCount);
+    if (window.pendingDrawTwoVisual === incoming) window.pendingDrawTwoVisual = null;
+  }
+
+  function playDrawTwoImpact(playerId, state, incomingCards = null) {
+    const overlay = document.getElementById('ghost-animation-overlay');
+    const deck = document.getElementById('draw-deck-3d');
+    const pile = document.getElementById('discard-pile-3d');
+    if (playerId == null) return;
+    const incoming = incomingCards || hideDrawTwoTargetCards(playerId, state);
+    if (!overlay || !deck || !pile) {
+      restoreDrawTwoTargetCards(incoming);
+      return;
+    }
+
+    const isMe = String(playerId) === String(appState.myPlayerId || socket.id);
+    const targetSeatName = isMe ? null : getOpponentPositionName(playerId, state.players || [], appState.myPlayerId || socket.id);
+    const targetNode = isMe
+      ? document.getElementById('player-cards-fan')
+      : (targetSeatName ? document.querySelector(`.seat-${targetSeatName}`) : null);
+    if (!targetNode) {
+      restoreDrawTwoTargetCards(incoming);
+      return;
+    }
+
+    const deckRect = deck.getBoundingClientRect();
+    const pileRect = pile.getBoundingClientRect();
+    const targetRect = targetNode.getBoundingClientRect();
+    const deckX = deckRect.left + deckRect.width / 2;
+    const deckY = deckRect.top + deckRect.height / 2;
+    const pileX = pileRect.left + pileRect.width / 2;
+    const pileY = pileRect.top + pileRect.height / 2;
+    const targetX = targetRect.left + targetRect.width / 2;
+    const targetY = targetRect.top + targetRect.height / 2;
+
+    const pileBurst = document.createElement('div');
+    pileBurst.className = 'draw2-impact-core';
+    pileBurst.style.left = `${pileX}px`;
+    pileBurst.style.top = `${pileY}px`;
+    overlay.appendChild(pileBurst);
+    setTimeout(() => pileBurst.remove(), 700);
+    for (let i = 0; i < 3; i++) {
+      const ring = document.createElement('div');
+      ring.className = 'draw2-impact-ring';
+      ring.style.left = `${pileX}px`;
+      ring.style.top = `${pileY}px`;
+      ring.style.setProperty('--draw2-delay', `${i * 90}ms`);
+      overlay.appendChild(ring);
+      setTimeout(() => ring.remove(), 1000);
+    }
+
+    deck.classList.remove('draw2-deck-jump');
+    void deck.offsetWidth;
+    deck.classList.add('draw2-deck-jump');
+    setTimeout(() => deck.classList.remove('draw2-deck-jump'), 720);
+
+    targetNode.classList.remove('draw2-player-impact');
+    void targetNode.offsetWidth;
+    targetNode.classList.add('draw2-player-impact');
+    setTimeout(() => targetNode.classList.remove('draw2-player-impact'), 1100);
+
+    let missileHits = 0;
+    const showTargetImpact = () => {
+      missileHits++;
+      const burst = document.createElement('div');
+      burst.className = 'draw2-target-burst';
+      burst.style.left = `${targetX}px`;
+      burst.style.top = `${targetY}px`;
+      overlay.appendChild(burst);
+      setTimeout(() => burst.remove(), 850);
+      for (let i = 0; i < 2; i++) {
+        const ring = document.createElement('div');
+        ring.className = 'draw2-target-ring';
+        ring.style.left = `${targetX}px`;
+        ring.style.top = `${targetY}px`;
+        ring.style.setProperty('--draw2-delay', `${i * 70}ms`);
+        overlay.appendChild(ring);
+        setTimeout(() => ring.remove(), 780);
+      }
+      if (missileHits === 1) {
+        const text = document.createElement('div');
+        text.className = 'draw2-cards-label';
+        text.textContent = '+2 CARDS!';
+        text.style.left = `${targetX}px`;
+        text.style.top = `${targetY - 34}px`;
+        overlay.appendChild(text);
+        setTimeout(() => text.remove(), 1250);
+      }
+      if (missileHits >= 2) restoreDrawTwoTargetCards(incoming);
+    };
+
+    const cardWidth = 52;
+    const cardHeight = 82;
+    [-1, 1].forEach((side, index) => {
+      const x = deckX + side * 12;
+      const y = deckY;
+      const hoverX = x + side * 20;
+      const hoverY = y - 78 - index * 12;
+      const card = document.createElement('div');
+      card.className = 'draw2-spectral-card';
+      card.innerHTML = '<span class="draw2-spectral-corner">+2</span><b>+2</b><span class="draw2-spectral-corner draw2-spectral-corner-bottom">+2</span>';
+      Object.assign(card.style, {
+        left: `${x - cardWidth / 2}px`, top: `${y - cardHeight / 2}px`,
+        width: `${cardWidth}px`, height: `${cardHeight}px`,
+        transform: 'translate3d(0,0,0) scale(.12) rotate(0deg)'
+      });
+      overlay.appendChild(card);
+
+      const hoverTransform = `translate3d(${hoverX - x}px,${hoverY - y}px,0) scale(1) rotate(${side * 12}deg)`;
+      const pop = card.animate([
+        { transform: 'translate3d(0,0,0) scale(.12) rotate(0deg)', opacity: 0 },
+        { transform: hoverTransform, opacity: 1, offset: 1 }
+      ], { duration: 270, easing: 'cubic-bezier(.16,1.2,.3,1)', fill: 'forwards' });
+      pop.finished.then(() => {
+        card.style.transform = hoverTransform;
+        pop.cancel();
+        card.classList.add('draw2-spectral-hover');
+        setTimeout(() => {
+          card.classList.remove('draw2-spectral-hover');
+          const dx = targetX + side * 18 - hoverX;
+          const dy = targetY - hoverY;
+          const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+          const distance = Math.hypot(dx, dy);
+          const trail = document.createElement('div');
+          trail.className = 'draw2-plasma-trail';
+          Object.assign(trail.style, {
+            left: `${hoverX}px`, top: `${hoverY}px`, width: `${distance}px`,
+            transform: `rotate(${angle}deg) scaleX(0)`
+          });
+          overlay.appendChild(trail);
+          trail.animate([
+            { transform: `rotate(${angle}deg) scaleX(0)`, opacity: .95, offset: 0 },
+            { transform: `rotate(${angle}deg) scaleX(1)`, opacity: .8, offset: .35 },
+            { transform: `rotate(${angle}deg) scaleX(1)`, opacity: 0, offset: 1 }
+          ], { duration: 480, easing: 'ease-out', fill: 'forwards' });
+          const hit = card.animate([
+            { transform: hoverTransform, opacity: 1 },
+            { transform: `translate3d(${targetX + side * 18 - x}px,${targetY - y}px,0) scale(.16) rotate(${angle}deg)`, opacity: .15 }
+          ], { duration: 480, easing: 'cubic-bezier(.55,0,.95,.3)', fill: 'forwards' });
+          hit.finished.then(() => {
+            card.remove();
+            trail.remove();
+            showTargetImpact();
+          }).catch(() => {});
+        }, 330 + index * 70);
+      }).catch(() => {});
+      setTimeout(() => card.remove(), 2600);
+    });
+    setTimeout(() => restoreDrawTwoTargetCards(incoming), 2400);
   }
 
   function captureRemoteDiscardSource(previousState, nextState) {
@@ -1643,10 +1879,14 @@
     const actorId = played?.playerId || previousState.currentTurnPlayerId;
     const isSkip = String(nextState.topCard.value).toLowerCase() === 'skip';
     const isReverse = String(nextState.topCard.value).toLowerCase() === 'reverse';
+    const isDrawTwo = String(nextState.topCard.value).toLowerCase() === 'draw2';
     const targetId = isSkip ? getSkippedPlayerId(previousState) : null;
+    const drawTwoTargetId = isDrawTwo ? getSkippedPlayerId(previousState) : null;
     const signature = `${actorId}:${nextState.topCard.id}`;
-    if ((isSkip && targetId == null) || signature === window.lastRemoteDiscardAnimationKey) return;
+    if (((isSkip && targetId == null) || (isDrawTwo && drawTwoTargetId == null))
+      || signature === window.lastRemoteDiscardAnimationKey) return;
     window.lastRemoteDiscardAnimationKey = signature;
+    const incomingDrawTwoCards = isDrawTwo ? hideDrawTwoTargetCards(drawTwoTargetId, nextState) : null;
 
     const actorSeat = getOpponentPositionName(actorId, previousState.players || [], appState.myPlayerId || socket.id);
     const sourceEl = actorSeat ? document.getElementById(`opp-${actorSeat}-cards`) : null;
@@ -1654,6 +1894,7 @@
     if (!sourceEl || !pile) {
       if (isSkip) playSkipImpact(targetId, nextState);
       if (isReverse) playReverseImpact(nextState);
+      if (isDrawTwo) playDrawTwoImpact(drawTwoTargetId, nextState, incomingDrawTwoCards);
       return;
     }
 
@@ -1679,6 +1920,7 @@
     ghost.classList.add('discard-flight-ghost');
     if (isSkip) ghost.classList.add('power-card-glow');
     if (isReverse) ghost.classList.add('reverse-flight-ghost');
+    if (isDrawTwo) ghost.classList.add('draw2-slam-ghost');
     Object.assign(ghost.style, {
       position: 'absolute', left: `${startCenterX - width / 2}px`, top: `${startCenterY - height / 2}px`,
       width: `${width}px`, height: `${height}px`, zIndex: '10000',
@@ -1697,6 +1939,7 @@
       if (pileCard?.isConnected) pileCard.style.visibility = '';
       if (isSkip) playSkipImpact(targetId, nextState);
       if (isReverse) playReverseImpact(nextState);
+      if (isDrawTwo) playDrawTwoImpact(drawTwoTargetId, nextState, incomingDrawTwoCards);
     };
     const endTransform = `translate3d(${endCenterX - startCenterX}px,${endCenterY - startCenterY}px,0) scale(1) rotate(0deg)`;
     if (isReverse) {
@@ -1707,6 +1950,14 @@
       });
       reverseFlight.animation.finished.then(land).catch(() => {});
       setTimeout(land, 720);
+    } else if (isDrawTwo) {
+      const flight = animateDrawTwoSlamFlight(ghost, overlay, {
+        startX: startCenterX - width / 2, startY: startCenterY - height / 2,
+        width, height, dx: endCenterX - startCenterX, dy: endCenterY - startCenterY,
+        startTransform: ghost.style.transform, endTransform
+      });
+      flight.animation.finished.then(land).catch(() => {});
+      setTimeout(land, 470);
     } else {
       requestAnimationFrame(() => { ghost.style.transform = endTransform; });
       ghost.addEventListener('transitionend', land, { once: true });

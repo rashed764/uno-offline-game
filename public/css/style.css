@@ -2206,3 +2206,130 @@ input[type="range"] {
   68% { scale: .98; translate: 0 1px; }
 }
 
+/* UNO +2: forceful landing, deck recoil, twin plasma cards, and target burst. */
+.discard-flight-ghost.draw2-slam-ghost {
+  filter: drop-shadow(0 0 8px #ff68eb) drop-shadow(0 0 21px #793bff);
+  box-shadow: 0 0 20px rgba(255,72,230,.8);
+}
+.draw2-slam-trail {
+  position: absolute;
+  z-index: 9998;
+  height: 8px;
+  border-radius: 50%;
+  pointer-events: none;
+  transform-origin: left center;
+  background: linear-gradient(90deg,transparent,#f25cff,#fff,#b05cff,transparent);
+  box-shadow: 0 0 12px #ec63ff, 0 0 25px #853dff;
+  filter: blur(2px);
+}
+.draw2-impact-core,
+.draw2-target-burst {
+  position: fixed;
+  z-index: 10002;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle,#fff 0 8%,#ffbaff 15%,rgba(191,58,255,.8) 38%,transparent 72%);
+  box-shadow: 0 0 24px #e34fff, 0 0 55px rgba(115,54,255,.8);
+  transform: translate(-50%,-50%) scale(.3);
+  animation: draw2-core-flash 650ms ease-out forwards;
+}
+@keyframes draw2-core-flash {
+  0% { opacity: 1; transform: translate(-50%,-50%) scale(.3); }
+  35% { opacity: 1; transform: translate(-50%,-50%) scale(2.4); }
+  100% { opacity: 0; transform: translate(-50%,-50%) scale(.7); }
+}
+.draw2-impact-ring,
+.draw2-target-ring {
+  position: fixed;
+  z-index: 10001;
+  width: 22px;
+  height: 22px;
+  border: 3px solid rgba(255,190,255,.98);
+  border-radius: 50%;
+  pointer-events: none;
+  box-shadow: 0 0 13px #ee4cff, inset 0 0 8px #b450ff;
+  transform: translate(-50%,-50%) scale(.2);
+  animation: draw2-ring-blast 780ms cubic-bezier(.12,.66,.22,1) var(--draw2-delay,0ms) forwards;
+}
+.draw2-target-ring { border-color: rgba(147,250,255,.98); box-shadow: 0 0 14px #37eaff, inset 0 0 8px #37eaff; }
+@keyframes draw2-ring-blast {
+  0% { opacity: .95; transform: translate(-50%,-50%) scale(.2); }
+  100% { opacity: 0; transform: translate(-50%,-50%) scale(9); }
+}
+.draw2-deck-jump { animation: draw2-deck-recoil 660ms cubic-bezier(.2,.85,.28,1); }
+@keyframes draw2-deck-recoil {
+  0%,100% { transform: translateY(0) scale(1); }
+  24% { transform: translateY(-34px) scale(1.12); filter: drop-shadow(0 0 17px #c95aff); }
+  43% { transform: translateY(7px) scale(.96); }
+  62% { transform: translateY(-8px) scale(1.03); }
+}
+.draw2-spectral-card {
+  position: absolute;
+  z-index: 10004;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font: 900 23px/1 system-ui,sans-serif;
+  text-shadow: 0 0 5px white, 0 0 12px #ef60ff;
+  background: linear-gradient(145deg,rgba(243,119,255,.96),rgba(98,55,255,.94) 55%,rgba(27,221,255,.92));
+  border: 1px solid rgba(255,255,255,.96);
+  border-radius: 8px;
+  box-shadow: 0 0 10px #fff, 0 0 24px #dc43ff, inset 0 0 14px rgba(255,255,255,.8);
+  pointer-events: none;
+  backface-visibility: hidden;
+}
+.draw2-spectral-card::before {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border: 1px solid rgba(255,255,255,.72);
+  border-radius: 5px;
+}
+.draw2-spectral-corner { position: absolute; top: 6px; left: 7px; font: 900 9px/1 system-ui,sans-serif; }
+.draw2-spectral-corner-bottom { top: auto; left: auto; right: 7px; bottom: 6px; transform: rotate(180deg); }
+.draw2-spectral-hover { animation: draw2-spectral-float 260ms ease-in-out infinite alternate; }
+@keyframes draw2-spectral-float {
+  from { translate: 0 -2px; filter: drop-shadow(0 0 8px #ed7aff); }
+  to { translate: 0 -9px; filter: drop-shadow(0 0 18px #64f8ff); }
+}
+.draw2-plasma-trail {
+  position: absolute;
+  z-index: 10003;
+  height: 10px;
+  transform-origin: left center;
+  border-radius: 50%;
+  background: linear-gradient(90deg,rgba(87,241,255,.1),#c9ffff,#ec5bff,rgba(95,68,255,.2));
+  box-shadow: 0 0 10px #68f5ff, 0 0 20px #a94cff;
+  filter: blur(2px);
+  pointer-events: none;
+}
+.draw2-cards-label {
+  position: fixed;
+  z-index: 10005;
+  color: #fff;
+  font: 1000 20px/1 system-ui,sans-serif;
+  letter-spacing: .08em;
+  white-space: nowrap;
+  text-shadow: 0 0 5px #fff, 0 0 13px #ff55ed, 0 0 24px #853dff;
+  pointer-events: none;
+  transform: translate(-50%,-50%) scale(.25) rotate(-8deg);
+  animation: draw2-label-pop 1.15s cubic-bezier(.16,1.2,.3,1) forwards;
+}
+@keyframes draw2-label-pop {
+  0% { opacity: 0; transform: translate(-50%,-50%) scale(.25) rotate(-8deg); }
+  22% { opacity: 1; transform: translate(-50%,-50%) scale(1.2) rotate(3deg); }
+  42%,78% { opacity: 1; transform: translate(-50%,-50%) scale(1) rotate(0); }
+  100% { opacity: 0; transform: translate(-50%,-90%) scale(.9) rotate(0); }
+}
+.draw2-player-impact {
+  animation: draw2-target-hit 980ms cubic-bezier(.2,.9,.3,1);
+}
+@keyframes draw2-target-hit {
+  0%,100% { scale: 1; filter: none; }
+  36% { scale: 1.08; filter: brightness(1.5) drop-shadow(0 0 15px #e054ff); }
+  58% { scale: .98; }
+}
+
