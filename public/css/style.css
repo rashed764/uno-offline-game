@@ -1122,7 +1122,62 @@ input[type="text"]:focus {
   letter-spacing: -0.06em;
 }
 
-/* ==========================================================================
+/* Cyber Punk deck ports the reference card HUD, foil, scanlines and glitch layers. */
+.card-front.cyberpunk-card-face { --cyber-accent: #00f3ff; --cyber-glow: rgba(0,243,255,.6); background: #05060f; border: 2px solid var(--cyber-accent); box-shadow: 0 0 15px var(--cyber-glow), inset 0 0 15px var(--cyber-glow); perspective: 900px; }
+.card-front.cyberpunk-card-face.card-red { --cyber-accent: #ff0055; --cyber-glow: rgba(255,0,85,.5); }
+.card-front.cyberpunk-card-face.card-blue { --cyber-accent: #00f3ff; --cyber-glow: rgba(0,243,255,.5); }
+.card-front.cyberpunk-card-face.card-green { --cyber-accent: #00ff66; --cyber-glow: rgba(0,255,102,.5); }
+.card-front.cyberpunk-card-face.card-yellow { --cyber-accent: #ffe600; --cyber-glow: rgba(255,230,0,.5); }
+.card-front.cyberpunk-card-face.card-black { --cyber-accent: #b026ff; --cyber-glow: rgba(176,38,255,.6); }
+.card-front.cyberpunk-card-face .card-inner, .card-back.cyberpunk-deck-back .card-inner { inset: 4%; border: 1px solid color-mix(in srgb, var(--cyber-accent, var(--deck-back-emblem)) 65%, transparent); transform: perspective(1200px) rotateX(var(--cyber-tilt-x, 0deg)) rotateY(var(--cyber-tilt-y, 0deg)); transform-style: preserve-3d; transition: transform .6s cubic-bezier(.2,.8,.2,1); }
+.card-front.cyberpunk-card-face .card-inner { --cyber-bg: #05060f; background: radial-gradient(var(--cyber-accent) .55px, transparent .8px) 0 0 / 8px 8px, repeating-linear-gradient(0deg, transparent 0 3px, rgba(255,255,255,.035) 4px), radial-gradient(ellipse at center, #151a29, #05060f 82%); }
+.card-back.cyberpunk-deck-back .card-inner { background: radial-gradient(var(--deck-back-panel, #ff0055) .55px, transparent .8px) 0 0 / 8px 8px, repeating-linear-gradient(0deg, transparent 0 3px, rgba(255,255,255,.035) 4px), radial-gradient(ellipse at center, #151428, var(--deck-back-surface, #05060f) 82%); }
+.card-front.cyberpunk-card-face .cyber-holo-foil { position: absolute; z-index: 2; inset: 0; pointer-events: none; opacity: .6; mix-blend-mode: color-dodge; background: linear-gradient(115deg, transparent 20%, rgba(255,0,128,.2) 30%, rgba(0,243,255,.3) 45%, rgba(255,230,0,.2) 60%, transparent 80%); background-size: 200% 200%; background-position: var(--cyber-holo-x, 50%) var(--cyber-holo-y, 50%); transition: background-position .12s linear; }
+.card-front.cyberpunk-card-face .cyber-scanline-overlay, .card-back.cyberpunk-deck-back .cyber-scanline-overlay { position: absolute; z-index: 2; inset: 0; pointer-events: none; background: linear-gradient(to bottom, transparent 0 50%, rgba(0,0,0,.3) 50% 100%); background-size: 100% 4px; }
+.card-front.cyberpunk-card-face .cyber-hud-top, .card-front.cyberpunk-card-face .cyber-hud-bottom { position: absolute; z-index: 3; left: 9%; right: 9%; display: flex; justify-content: space-between; align-items: flex-start; }
+.card-front.cyberpunk-card-face .cyber-hud-top { top: 8%; }
+.card-front.cyberpunk-card-face .cyber-hud-bottom { bottom: 8%; align-items: flex-end; transform: rotate(180deg); }
+.card-front.cyberpunk-card-face .cyber-corner-value { display: flex; flex-direction: column; color: #f0f5fa; font-family: 'Orbitron', var(--font-logo), monospace; line-height: .95; }
+.card-front.cyberpunk-card-face .cyber-corner-value strong { position: relative; font-size: 15cqi; font-weight: 900; text-shadow: 0 0 5px var(--cyber-accent); }
+.card-front.cyberpunk-card-face .cyber-corner-value small { margin-top: 2px; color: var(--cyber-accent); font: 700 7cqi/1 monospace; letter-spacing: .08em; }
+.card-front.cyberpunk-card-face .cyber-status { display: flex; align-items: center; gap: 4px; padding: 2px 4px; border: 1px solid rgba(255,255,255,.16); border-radius: 3px; background: rgba(5,6,15,.86); color: var(--cyber-accent); font: 700 7cqi/1.2 monospace; }
+.card-front.cyberpunk-card-face .cyber-status i { width: 4px; height: 4px; border-radius: 50%; background: #00ff66; box-shadow: 0 0 5px #00ff66; animation: cyber-status-ping 1.2s infinite; }
+@keyframes cyber-status-ping { 50% { opacity: .25; transform: scale(.65); } }
+.card-front.cyberpunk-card-face .cyber-hud-bottom > span { color: #87909f; font: 600 6cqi/1 monospace; letter-spacing: -.03em; }
+.card-front.cyberpunk-card-face .cyber-front-center { position: absolute; z-index: 3; inset: 20% 9%; display: grid; place-items: center; }
+.card-front.cyberpunk-card-face .cyber-orbit-ring { position: absolute; width: 72%; height: 82%; border: 1px solid rgba(148,163,184,.38); border-radius: 50%; transform: rotate(45deg); pointer-events: none; }
+.card-front.cyberpunk-card-face .cyber-value-badge { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 70%; height: 76%; overflow: hidden; border: 1px solid rgba(148,163,184,.55); background: linear-gradient(145deg, rgba(30,41,59,.88), rgba(5,6,15,.96)); clip-path: polygon(15% 0,85% 0,100% 50%,85% 100%,15% 100%,0 50%); }
+.card-front.cyberpunk-card-face .cyber-value-badge::before, .card-front.cyberpunk-card-face .cyber-value-badge::after { content: ''; position: absolute; left: 0; width: 100%; height: 1px; background: linear-gradient(90deg, transparent, var(--cyber-accent), transparent); opacity: .8; }
+.card-front.cyberpunk-card-face .cyber-value-badge::before { top: 12%; }
+.card-front.cyberpunk-card-face .cyber-value-badge::after { bottom: 12%; }
+.card-front.cyberpunk-card-face .cyber-center-value { position: relative; z-index: 3; display: grid; place-items: center; max-width: 100%; color: #fff; font-family: 'Orbitron', var(--font-logo), sans-serif; font-size: 37cqi; font-weight: 900; line-height: 1; text-shadow: 0 0 8px var(--cyber-accent), 0 0 20px var(--cyber-glow); animation: cyber-neon-pulse 3s ease-in-out infinite; }
+.card-front.cyberpunk-card-face .cyber-center-value i { font-size: .8em; }
+@keyframes cyber-neon-pulse { 50% { filter: drop-shadow(0 0 8px var(--cyber-accent)) drop-shadow(0 0 19px var(--cyber-glow)); } }
+.card-front.cyberpunk-card-face .cyber-subtitle { position: relative; z-index: 3; margin-top: 5%; padding-inline: 4%; color: var(--cyber-accent); font: 800 7cqi/1.1 monospace; letter-spacing: .07em; text-align: center; text-transform: uppercase; }
+.card-front.cyberpunk-card-face .cyber-tech-corner { position: absolute; z-index: 4; width: 7%; height: 4%; border-color: rgba(203,213,225,.75); border-style: solid; }
+.card-front.cyberpunk-card-face .cyber-tech-corner.top-left { top: 2%; left: 2%; border-width: 1px 0 0 1px; }
+.card-front.cyberpunk-card-face .cyber-tech-corner.top-right { top: 2%; right: 2%; border-width: 1px 1px 0 0; }
+.card-front.cyberpunk-card-face .cyber-tech-corner.bottom-left { bottom: 2%; left: 2%; border-width: 0 0 1px 1px; }
+.card-front.cyberpunk-card-face .cyber-tech-corner.bottom-right { bottom: 2%; right: 2%; border-width: 0 1px 1px 0; }
+.cyberpunk-card-face .glitch-element { position: relative; }
+.cyberpunk-card-face.glitch-active .glitch-element::before, .cyberpunk-card-face.glitch-active .glitch-element::after { content: attr(data-text); position: absolute; inset: 0; width: 100%; height: 100%; overflow: hidden; background: rgba(5,6,15,.8); }
+.cyberpunk-card-face.glitch-active .glitch-element::before { left: 2px; color: #fff; text-shadow: -2px 0 #ff0055; animation: cyber-glitch-anim 2s infinite linear alternate-reverse; }
+.cyberpunk-card-face.glitch-active .glitch-element::after { left: -2px; color: #fff; text-shadow: -2px 0 #00f3ff; animation: cyber-glitch-anim 1.5s infinite linear alternate-reverse; }
+@keyframes cyber-glitch-anim { 0% { clip-path: inset(80% 0 1%); transform: translate(-2px,1px); } 10% { clip-path: inset(10% 0 55%); transform: translate(2px,-1px); } 20% { clip-path: inset(40% 0 20%); transform: translate(-1px,2px); } 30% { clip-path: inset(25% 0 60%); transform: translate(1px,-2px); } 40% { clip-path: inset(70% 0 10%); transform: translate(-2px,-1px); } 50% { clip-path: inset(15% 0 80%); transform: translate(2px,1px); } 60% { clip-path: inset(50% 0 30%); transform: translate(-1px,1px); } 70% { clip-path: inset(5% 0 75%); transform: translate(1px,-1px); } 80% { clip-path: inset(85% 0 5%); transform: translate(-2px,2px); } 90% { clip-path: inset(30% 0 45%); transform: translate(2px,-2px); } 100% { clip-path: inset(0); transform: translate(0); } }
+.cyberpunk-glitch-burst { animation: cyber-glitch-burst .42s steps(2, end); }
+@keyframes cyber-glitch-burst { 0%,100% { filter: none; } 12% { filter: brightness(1.55) saturate(1.8) hue-rotate(25deg); } 28% { filter: contrast(1.7) saturate(2); } 45% { filter: brightness(.7) hue-rotate(-25deg); } 64% { filter: brightness(1.35) contrast(1.4); } 82% { filter: saturate(1.9) hue-rotate(12deg); } }
+.card-back.cyberpunk-deck-back { --cyber-accent: var(--deck-back-emblem, #00f3ff); --cyber-glow: rgba(0,243,255,.5); --cyber-bg: var(--deck-back-surface, #05060f); border: 2px solid var(--deck-back-panel, #ff0055); box-shadow: 0 0 15px rgba(255,0,85,.4), inset 0 0 15px rgba(0,243,255,.22); perspective: 900px; }
+.card-back.cyberpunk-deck-back .card-inner { background-color: var(--deck-back-surface, #05060f); }
+.card-back.cyberpunk-deck-back .cyber-back-hud, .card-back.cyberpunk-deck-back .cyber-back-footer { position: absolute; z-index: 3; left: 7%; right: 7%; display: flex; justify-content: space-between; color: var(--deck-back-panel, #ff0055); font: 700 6cqi/1.2 monospace; }
+.card-back.cyberpunk-deck-back .cyber-back-hud { top: 7%; }
+.card-back.cyberpunk-deck-back .cyber-back-footer { bottom: 7%; color: #87909f; font-size: 5.5cqi; }
+.card-back.cyberpunk-deck-back .cyber-back-emblem { position: absolute; z-index: 3; inset: 20% 13%; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 1px solid rgba(255,0,85,.6); border-radius: 12%; background: rgba(10,12,24,.92); box-shadow: inset 0 0 14px rgba(255,0,85,.12); }
+.card-back.cyberpunk-deck-back .cyber-back-orbit { width: 47%; aspect-ratio: 1; display: grid; place-items: center; margin-bottom: 5%; border: 1px dashed var(--deck-back-panel, #ff0055); border-radius: 50%; color: var(--deck-back-emblem, #00f3ff); font-size: 26cqi; animation: cyber-orbit-spin 20s linear infinite; }
+@keyframes cyber-orbit-spin { to { transform: rotate(360deg); } }
+.card-back.cyberpunk-deck-back .cyber-back-emblem strong { color: var(--deck-back-emblem, #00f3ff); font: 900 30cqi/1 'Orbitron', var(--font-logo), sans-serif; letter-spacing: .05em; text-shadow: 0 0 8px currentColor, 0 0 18px currentColor; }
+.card-back.cyberpunk-deck-back .cyber-back-emblem small { margin-top: 6%; color: var(--deck-back-panel, #ff0055); font: 700 6cqi/1 monospace; letter-spacing: .12em; }
+
+/* ========================================================================== 
    CURRENT PLAYER ZONE (Cards Fan & HUD)
    ========================================================================== */
 .current-player-seat {
@@ -2939,6 +2994,7 @@ input[type="range"] {
 .theme-shop-box .modal-header h3 { color: #fff; font-size: 1.35rem; }
 .shop-wallet { margin-top: 4px; color: #ffd55a; font-weight: 800; }
 .shop-reward-note { color: rgba(245,245,250,.72); font-size: .86rem; margin: 0 0 14px; }
+.shop-admin-note { margin: 0 0 12px; padding: 9px 11px; border: 1px solid rgba(0,243,255,.38); border-radius: 9px; background: rgba(0,243,255,.08); color: #8ff9ff; font-size: .82rem; font-weight: 700; }
 .theme-shop-catalog { overflow-y: auto; max-height: calc(min(86vh, 760px) - 130px); padding: 2px 3px 6px; }
 .shop-category + .shop-category { margin-top: 18px; }
 .shop-category h4 { color: #ffd55a; font-size: 1rem; margin: 0 0 8px; }

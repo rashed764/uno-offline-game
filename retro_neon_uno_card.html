@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retro Neon UNO Card - 80s Synthwave Showcase</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Retro & Cyber Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Monoton&family=Press+Start+2P&family=Rajdhani:wght@600;700&family=VT323&family=Orbitron:wght@600;900&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --color-neon-pink: #ff007f;
+            --color-neon-cyan: #00f0ff;
+            --color-neon-yellow: #ffe600;
+            --color-neon-green: #00ffaa;
+            --color-neon-purple: #9d00ff;
+            --theme-color: #ff007f;
+            --theme-glow: rgba(255, 0, 127, 0.6);
+            --bg-dark: #080314;
+        }
+
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background-color: var(--bg-dark);
+            color: #f1f5f9;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 50% 30%, rgba(157, 0, 255, 0.15) 0%, transparent 60%),
+                radial-gradient(circle at 80% 80%, rgba(255, 0, 127, 0.1) 0%, transparent 50%);
+        }
+
+        .font-retro {
+            font-family: 'Monoton', cursive;
+        }
+
+        .font-pixel {
+            font-family: 'Press Start 2P', monospace;
+        }
+
+        .font-arcade {
+            font-family: 'VT323', monospace;
+        }
+
+        .font-cyber {
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        .synthwave-grid {
+            position: absolute;
+            width: 200%;
+            height: 100%;
+            bottom: -50%;
+            left: -50%;
+            background-image: 
+                linear-gradient(to right, rgba(255, 0, 127, 0.25) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(0, 240, 255, 0.25) 1px, transparent 1px);
+            background-size: 50px 30px;
+            transform: perspective(300px) rotateX(75deg);
+            animation: grid-scroll 10s linear infinite;
+            pointer-events: none;
+        }
+
+        @keyframes grid-scroll {
+            0% { background-position: 0 0; }
+            100% { background-position: 0 300px; }
+        }
+
+        .synthwave-sun {
+            background: linear-gradient(to bottom, #ffe600 0%, #ff007f 60%, #9d00ff 100%);
+            mask-image: linear-gradient(to bottom, #000 0%, #000 60%, transparent 60%, transparent 63%, #000 63%, #000 70%, transparent 70%, transparent 74%, #000 74%, #000 82%, transparent 82%, transparent 87%, #000 87%, #000 100%);
+            -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 60%, transparent 60%, transparent 63%, #000 63%, #000 70%, transparent 70%, transparent 74%, #000 74%, #000 82%, transparent 82%, transparent 87%, #000 87%, #000 100%);
+            box-shadow: 0 0 40px rgba(255, 0, 127, 0.5);
+        }
+
+        .crt-scanlines {
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0, 0, 0, 0.35),
+                rgba(0, 0, 0, 0.35) 1px,
+                transparent 1px,
+                transparent 3px
+            );
+            pointer-events: none;
+        }
+
+        /* 3D Scene Perspective */
+        .card-perspective {
+            perspective: 1200px;
+        }
+
+        /* The Card Container */
+        .cyber-card-inner {
+            transform-style: preserve-3d;
+            transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .cyber-card-inner.flipped {
+            transform: rotateY(180deg);
+        }
+
+        /* Card Faces */
+        .card-front, .card-back {
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            border-radius: 24px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card-back {
+            transform: rotateY(180deg);
+        }
+
+        /* Futuristic Neon Card Border & Dynamic Glows */
+        .retro-neon-border {
+            border: 3px solid var(--theme-color);
+            box-shadow: 
+                0 0 15px var(--theme-color),
+                0 0 30px var(--theme-glow),
+                inset 0 0 15px var(--theme-glow);
+        }
+
+        /* Chrome Text & Shapes */
+        .chrome-text {
+            background: linear-gradient(to bottom, #ffffff 0%, #a1a1a1 50%, #4a4a4a 51%, #e2e2e2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 0 8px var(--theme-color));
+        }
+
+        /* Holographic Metallic Overlay */
+        .holo-synth-foil {
+            background: linear-gradient(
+                135deg,
+                transparent 0%,
+                rgba(255, 0, 127, 0.25) 25%,
+                rgba(0, 240, 255, 0.3) 50%,
+                rgba(255, 230, 0, 0.2) 75%,
+                transparent 100%
+            );
+            background-size: 200% 200%;
+            mix-blend-mode: overlay;
+            pointer-events: none;
+            opacity: 0.7;
+        }
+
+        /* Neon Flicker Animations */
+        @keyframes neon-flicker {
+            0%, 100% { opacity: 1; filter: drop-shadow(0 0 10px var(--theme-color)); }
+            92% { opacity: 1; }
+            93% { opacity: 0.4; }
+            94% { opacity: 1; }
+            96% { opacity: 0.2; }
+            97% { opacity: 1; }
+        }
+
+        .flicker-effect {
+            animation: neon-flicker 4s infinite;
+        }
+
+        /* Theme Color Classes */
+        .theme-pink { --theme-color: #ff007f; --theme-glow: rgba(255, 0, 127, 0.6); }
+        .theme-cyan { --theme-color: #00f0ff; --theme-glow: rgba(0, 240, 255, 0.6); }
+        .theme-yellow { --theme-color: #ffe600; --theme-glow: rgba(255, 230, 0, 0.6); }
+        .theme-green { --theme-color: #00ffaa; --theme-glow: rgba(0, 255, 170, 0.6); }
+        .theme-purple { --theme-color: #9d00ff; --theme-glow: rgba(157, 0, 255, 0.6); }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between selection:bg-pink-500 selection:text-black theme-pink" id="appBody">
+
+    <!-- Background Retro Atmosphere -->
+    <div class="fixed inset-0 overflow-hidden pointer-events-none z-0">
+        <!-- Retro Sunset Orb -->
+        <div class="synthwave-sun w-64 h-64 sm:w-96 sm:h-96 rounded-full absolute top-10 left-1/2 -translate-x-1/2 opacity-30 blur-sm"></div>
+        <!-- Animated 3D Floor Grid -->
+        <div class="synthwave-grid"></div>
+    </div>
+
+    <header class="border-b border-pink-500/30 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl border-2 border-pink-500 bg-pink-950/60 flex items-center justify-center text-pink-400 font-pixel text-lg shadow-[0_0_15px_rgba(255,0,127,0.5)]">
+                    84
+                </div>
+                <div>
+                    <h1 class="font-retro text-xl sm:text-2xl text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-yellow-400 to-cyan-400 tracking-wider">
+                        RETRO NEON <span class="text-white font-cyber font-black">UNO</span>
+                    </h1>
+                    <p class="text-xs font-arcade text-pink-300 tracking-widest uppercase">SYNTHWAVE '84 // ARCADE EDITION</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <button id="sfxToggleBtn" onclick="toggleAudio()" class="px-3 py-1.5 rounded-lg border border-pink-500/40 bg-slate-900 hover:border-pink-400 text-xs font-arcade tracking-wider transition-all flex items-center gap-2">
+                    <i id="sfxIcon" class="fas fa-volume-up text-pink-400"></i>
+                    <span>AUDIO: <span id="sfxStateText" class="text-pink-400">ON</span></span>
+                </button>
+                <button onclick="triggerLaserBurst()" class="px-3 py-1.5 rounded-lg border border-cyan-400/50 bg-cyan-950/40 hover:bg-cyan-900/60 text-cyan-300 text-xs font-arcade tracking-wider transition-all flex items-center gap-2 shadow-[0_0_10px_rgba(0,240,255,0.3)]">
+                    <i class="fas fa-bolt text-yellow-300"></i>
+                    <span>SYNTH OVERDRIVE</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 py-8 w-full flex-grow grid grid-cols-1 lg:grid-cols-12 gap-8 items-center relative z-10">
+        
+        <!-- Left / Center: Interactive 3D Card Stage -->
+        <div class="lg:col-span-7 flex flex-col items-center justify-center relative">
+            
+            <!-- Instruction Tag -->
+            <div class="mb-4 text-center">
+                <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-950/90 border border-pink-500/40 text-xs text-pink-200 font-arcade tracking-wider shadow-[0_0_10px_rgba(255,0,127,0.2)]">
+                    <i class="fas fa-gamepad text-cyan-400 animate-pulse"></i> মাউস বা টাচ দিয়ে কার্ড ৩ডি ঘুরিয়ে দেখুন | ক্লিক করে ফ্লিপ করুন
+                </span>
+            </div>
+
+            <!-- Card Stage Container -->
+            <div id="cardStage" class="card-perspective w-72 sm:w-80 h-[460px] sm:h-[500px] cursor-pointer group select-none my-2">
+                
+                <div id="cyberCard" class="cyber-card-inner w-full h-full relative" onclick="flipCard()">
+                    
+                    <!-- ================= CARD FRONT ================= -->
+                    <div id="cardFront" class="card-front w-full h-full bg-slate-950 retro-neon-border p-3 flex flex-col justify-between transition-all duration-300">
+                        
+                        <!-- CRT Scanline Effect Overlay -->
+                        <div id="crtOverlay" class="crt-scanlines absolute inset-0 z-20"></div>
+                        <!-- Holographic Foil Overlay -->
+                        <div id="holoFoilFront" class="holo-synth-foil absolute inset-0 z-10"></div>
+                        <!-- Grid Lines inside Card -->
+                        <div class="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:16px_16px]"></div>
+
+                        <!-- Top Header HUD -->
+                        <div class="relative z-30 flex justify-between items-start">
+                            <div class="flex flex-col">
+                                <span id="cornerTopVal" class="font-cyber font-black text-3xl leading-none chrome-text">7</span>
+                                <span id="cornerTopLabel" class="font-arcade text-xs tracking-widest text-pink-400 uppercase">SYS_84</span>
+                            </div>
+                            <div class="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-900 border border-pink-500/50 text-[10px] font-arcade text-cyan-300 shadow-[0_0_8px_rgba(0,240,255,0.3)]">
+                                <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping"></span>
+                                <span id="hudStatus">ARCADE_READY</span>
+                            </div>
+                        </div>
+
+                        <!-- Center Neon Oval / Cyber Shield Badge -->
+                        <div class="relative z-30 my-auto flex justify-center items-center">
+                            
+                            <!-- Synthwave Geometric Sun in Card Center -->
+                            <div class="w-48 h-64 sm:w-52 sm:h-72 bg-gradient-to-b from-slate-900 via-slate-950 to-purple-950/80 border-2 border-pink-500/80 rounded-3xl flex flex-col items-center justify-center relative overflow-hidden shadow-[inset_0_0_20px_rgba(255,0,127,0.4)]">
+                                
+                                <!-- Internal Decorative Vector Palm/Lines -->
+                                <div class="absolute bottom-0 w-full h-1/2 bg-[linear-gradient(to_right,rgba(255,0,127,0.15)_1px,transparent_1px)] bg-[size:12px_12px]"></div>
+                                <div class="w-32 h-32 rounded-full synthwave-sun absolute top-4 opacity-40"></div>
+
+                                <!-- Main Number / Symbol Display -->
+                                <div id="centerValueDisplay" class="relative z-10 font-cyber font-black text-7xl sm:text-8xl tracking-tight text-white flicker-effect flex flex-col items-center drop-shadow-[0_0_15px_var(--theme-color)]">
+                                    7
+                                </div>
+
+                                <!-- Action Label Subtitle -->
+                                <div id="cardSubTitle" class="relative z-10 font-pixel text-[10px] tracking-widest text-cyan-300 uppercase mt-3 px-2 text-center drop-shadow-[0_0_5px_#00f0ff]">
+                                    SYNTH NODE
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Bottom Header HUD (Inverted) -->
+                        <div class="relative z-30 flex justify-between items-end rotate-180">
+                            <div class="flex flex-col">
+                                <span id="cornerBottomVal" class="font-cyber font-black text-3xl leading-none chrome-text">7</span>
+                                <span class="font-arcade text-xs tracking-widest text-pink-400 uppercase">SYS_84</span>
+                            </div>
+                            <div class="text-[10px] font-arcade text-slate-400 tracking-wider">
+                                RETRO_UNO // OUTRUN_84
+                            </div>
+                        </div>
+
+                        <!-- Outer Corner Tech Brackets -->
+                        <div class="absolute top-2 left-2 w-3 h-3 border-t-2 border-l-2 border-pink-400"></div>
+                        <div class="absolute top-2 right-2 w-3 h-3 border-t-2 border-r-2 border-pink-400"></div>
+                        <div class="absolute bottom-2 left-2 w-3 h-3 border-b-2 border-l-2 border-pink-400"></div>
+                        <div class="absolute bottom-2 right-2 w-3 h-3 border-b-2 border-r-2 border-pink-400"></div>
+                    </div>
+
+                    <!-- ================= CARD BACK ================= -->
+                    <div id="cardBack" class="card-back absolute inset-0 w-full h-full bg-slate-950 border-3 border-cyan-400 retro-neon-border p-4 flex flex-col justify-between items-center shadow-[0_0_30px_rgba(0,240,255,0.5)]">
+                        <div class="crt-scanlines absolute inset-0 z-20"></div>
+                        <div class="absolute inset-0 bg-[radial-gradient(#00f0ff_1px,transparent_1px)] [background-size:16px_16px] opacity-20"></div>
+
+                        <div class="w-full flex justify-between text-cyan-400 font-arcade text-sm">
+                            <span>ARCADE_CARTRIDGE</span>
+                            <span>VER_1984</span>
+                        </div>
+
+                        <!-- Back Center Logo Emblem -->
+                        <div class="w-48 h-60 bg-slate-900 border-2 border-cyan-400/80 rounded-2xl flex flex-col items-center justify-center p-4 relative overflow-hidden shadow-[0_0_20px_rgba(0,240,255,0.3)]">
+                            <div class="w-24 h-24 rounded-full border-2 border-dashed border-cyan-400 animate-[spin_15s_linear_infinite] flex items-center justify-center mb-3">
+                                <i class="fas fa-compact-disc text-4xl text-pink-500"></i>
+                            </div>
+                            <div class="font-retro text-3xl text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-yellow-300 to-cyan-400 tracking-widest drop-shadow-[0_0_10px_#ff007f]">
+                                UNO
+                            </div>
+                            <div class="font-arcade text-xs text-cyan-300 tracking-widest mt-1">RETRO NEON EDITION</div>
+                        </div>
+
+                        <div class="w-full flex justify-between text-pink-400 font-arcade text-xs">
+                            <span>ID: #NEON-84</span>
+                            <span>INSERT COIN TO PLAY</span>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Quick Control Actions -->
+            <div class="mt-6 flex flex-wrap gap-3 justify-center">
+                <button onclick="flipCard()" class="px-4 py-2 rounded-xl bg-slate-900 border border-pink-500/50 hover:border-pink-400 text-pink-300 text-xs font-arcade tracking-widest transition-all flex items-center gap-2 shadow-[0_0_10px_rgba(255,0,127,0.2)]">
+                    <i class="fas fa-rotate"></i> FLIP CARD
+                </button>
+                <button onclick="randomizeCard()" class="px-4 py-2 rounded-xl bg-pink-950/60 border border-pink-500 hover:bg-pink-900 text-pink-200 text-xs font-arcade tracking-widest transition-all flex items-center gap-2 shadow-[0_0_15px_rgba(255,0,127,0.4)]">
+                    <i class="fas fa-dice"></i> RANDOM GENERATE
+                </button>
+                <button onclick="openExportModal()" class="px-4 py-2 rounded-xl bg-slate-900 border border-yellow-400/50 hover:border-yellow-300 text-yellow-300 text-xs font-arcade tracking-widest transition-all flex items-center gap-2">
+                    <i class="fas fa-code"></i> COPY CSS/HTML
+                </button>
+            </div>
+
+        </div>
+
+        <div class="lg:col-span-5 flex flex-col gap-5">
+            
+            <div class="bg-slate-950/80 border border-pink-500/40 rounded-2xl p-5 backdrop-blur-md shadow-2xl relative">
+                <div class="flex items-center justify-between pb-3 mb-4 border-b border-pink-500/30">
+                    <h2 class="font-cyber font-bold text-base text-pink-400 flex items-center gap-2">
+                        <i class="fas fa-sliders text-cyan-400"></i> RETRO CUSTOMIZER
+                    </h2>
+                    <span class="text-xs font-arcade text-slate-400 tracking-widest">CONFIG MATRIX</span>
+                </div>
+
+                <!-- 1. Neon Theme Picker -->
+                <div class="mb-5">
+                    <label class="block text-xs font-arcade text-pink-300 uppercase tracking-widest mb-2">1. Select Neon Color Theme</label>
+                    <div class="grid grid-cols-5 gap-2">
+                        <button onclick="setCardColor('pink')" class="h-10 rounded-xl bg-pink-950/60 border-2 border-pink-500 hover:scale-105 transition-all flex flex-col items-center justify-center shadow-[0_0_10px_rgba(255,0,127,0.3)]">
+                            <span class="w-3 h-3 rounded-full bg-pink-500 shadow-[0_0_8px_#ff007f]"></span>
+                            <span class="text-[9px] font-arcade text-pink-300 mt-1">OUTRUN</span>
+                        </button>
+                        <button onclick="setCardColor('cyan')" class="h-10 rounded-xl bg-cyan-950/60 border-2 border-cyan-400 hover:scale-105 transition-all flex flex-col items-center justify-center shadow-[0_0_10px_rgba(0,240,255,0.3)]">
+                            <span class="w-3 h-3 rounded-full bg-cyan-400 shadow-[0_0_8px_#00f0ff]"></span>
+                            <span class="text-[9px] font-arcade text-cyan-300 mt-1">LASER</span>
+                        </button>
+                        <button onclick="setCardColor('yellow')" class="h-10 rounded-xl bg-yellow-950/60 border-2 border-yellow-400 hover:scale-105 transition-all flex flex-col items-center justify-center shadow-[0_0_10px_rgba(255,230,0,0.3)]">
+                            <span class="w-3 h-3 rounded-full bg-yellow-400 shadow-[0_0_8px_#ffe600]"></span>
+                            <span class="text-[9px] font-arcade text-yellow-300 mt-1">SOLAR</span>
+                        </button>
+                        <button onclick="setCardColor('green')" class="h-10 rounded-xl bg-emerald-950/60 border-2 border-emerald-400 hover:scale-105 transition-all flex flex-col items-center justify-center shadow-[0_0_10px_rgba(0,255,170,0.3)]">
+                            <span class="w-3 h-3 rounded-full bg-emerald-400 shadow-[0_0_8px_#00ffaa]"></span>
+                            <span class="text-[9px] font-arcade text-emerald-300 mt-1">MINT</span>
+                        </button>
+                        <button onclick="setCardColor('purple')" class="h-10 rounded-xl bg-purple-950/60 border-2 border-purple-500 hover:scale-105 transition-all flex flex-col items-center justify-center shadow-[0_0_10px_rgba(157,0,255,0.3)]">
+                            <span class="w-3 h-3 rounded-full bg-purple-500 shadow-[0_0_8px_#9d00ff]"></span>
+                            <span class="text-[9px] font-arcade text-purple-300 mt-1">VAPOR</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 2. Value & Action Type Picker -->
+                <div class="mb-5">
+                    <label class="block text-xs font-arcade text-pink-300 uppercase tracking-widest mb-2">2. Card Value & Arcade Protocol</label>
+                    
+                    <!-- Numeric Grid -->
+                    <div class="mb-3">
+                        <span class="text-[10px] font-arcade text-slate-400 mb-1 block">NUMERIC CODES (0-9)</span>
+                        <div class="grid grid-cols-5 gap-1.5">
+                            <div id="numGrid" class="contents"></div>
+                        </div>
+                    </div>
+
+                    <!-- Action Cards -->
+                    <div>
+                        <span class="text-[10px] font-arcade text-slate-400 mb-1 block">ARCADE ACTION PROTOCOLS</span>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="setCardValue('SKIP', 'RETRO SKIP', '<i class=\"fas fa-forward-step\"></i>')" class="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-pink-500/40 hover:border-pink-400 text-left transition-all">
+                                <div class="text-xs font-cyber text-pink-400 flex items-center gap-2"><i class="fas fa-forward-step"></i> SKIP</div>
+                                <div class="text-[10px] font-arcade text-slate-400">RETRO SKIP</div>
+                            </button>
+                            <button onclick="setCardValue('REV', 'SIGNAL REVERSE', '<i class=\"fas fa-backward-step\"></i>')" class="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-cyan-400/40 hover:border-cyan-400 text-left transition-all">
+                                <div class="text-xs font-cyber text-cyan-400 flex items-center gap-2"><i class="fas fa-backward-step"></i> REVERSE</div>
+                                <div class="text-[10px] font-arcade text-slate-400">SIGNAL REVERSE</div>
+                            </button>
+                            <button onclick="setCardValue('+2', 'SYNTH BOOST', '+2')" class="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-yellow-400/40 hover:border-yellow-400 text-left transition-all">
+                                <div class="text-xs font-cyber text-yellow-400 flex items-center gap-2"><i class="fas fa-layer-group"></i> DRAW +2</div>
+                                <div class="text-[10px] font-arcade text-slate-400">SYNTH BOOST</div>
+                            </button>
+                            <button onclick="setCardValue('+4', 'NEON MELTDOWN', '+4', 'purple')" class="p-2 rounded-xl bg-purple-950/60 hover:bg-purple-900/60 border border-purple-400 text-left transition-all">
+                                <div class="text-xs font-cyber text-purple-300 flex items-center gap-2"><i class="fas fa-radiation"></i> WILD +4</div>
+                                <div class="text-[10px] font-arcade text-purple-400">NEON MELTDOWN</div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Visual Effects Controls -->
+                <div>
+                    <label class="block text-xs font-arcade text-pink-300 uppercase tracking-widest mb-2">3. CRT & Holographic Effects</label>
+                    <div class="space-y-2">
+                        <label class="flex items-center justify-between p-2 rounded-xl bg-slate-900 border border-slate-800 cursor-pointer hover:border-pink-500/50">
+                            <span class="text-xs font-arcade text-slate-300 flex items-center gap-2">
+                                <i class="fas fa-tv text-cyan-400"></i> CRT TV Scanline Filter
+                            </span>
+                            <input type="checkbox" id="toggleScanlines" checked onchange="toggleEffect('scanlines')" class="accent-pink-500 w-4 h-4">
+                        </label>
+                        <label class="flex items-center justify-between p-2 rounded-xl bg-slate-900 border border-slate-800 cursor-pointer hover:border-pink-500/50">
+                            <span class="text-xs font-arcade text-slate-300 flex items-center gap-2">
+                                <i class="fas fa-[#ff007f] fa-gem text-pink-400"></i> Holographic Synth Sheen
+                            </span>
+                            <input type="checkbox" id="toggleHolo" checked onchange="toggleEffect('holo')" class="accent-pink-500 w-4 h-4">
+                        </label>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Preset Themes Selector -->
+            <div class="bg-slate-950/80 border border-cyan-400/30 rounded-2xl p-4 backdrop-blur-md">
+                <div class="text-xs font-arcade text-cyan-300 mb-2 uppercase tracking-widest flex items-center gap-2">
+                    <i class="fas fa-sliders text-yellow-300"></i> Retro Deck Presets
+                </div>
+                <div class="flex gap-2 overflow-x-auto pb-1">
+                    <button onclick="loadPreset('pink', '7', 'SYNTH NODE')" class="flex-shrink-0 px-3 py-1.5 rounded-lg bg-pink-950/50 border border-pink-500/50 text-pink-300 text-xs font-arcade hover:bg-pink-900/60 transition-all">
+                        Outrun 7
+                    </button>
+                    <button onclick="loadPreset('cyan', 'SKIP', 'RETRO SKIP', '<i class=\"fas fa-forward-step\"></i>')" class="flex-shrink-0 px-3 py-1.5 rounded-lg bg-cyan-950/50 border border-cyan-400/50 text-cyan-300 text-xs font-arcade hover:bg-cyan-900/60 transition-all">
+                        Laser Skip
+                    </button>
+                    <button onclick="loadPreset('yellow', '+2', 'SYNTH BOOST', '+2')" class="flex-shrink-0 px-3 py-1.5 rounded-lg bg-yellow-950/50 border border-yellow-400/50 text-yellow-300 text-xs font-arcade hover:bg-yellow-900/60 transition-all">
+                        Solar +2
+                    </button>
+                    <button onclick="loadPreset('purple', '+4', 'NEON MELTDOWN', '+4')" class="flex-shrink-0 px-3 py-1.5 rounded-lg bg-purple-950/50 border border-purple-500/50 text-purple-300 text-xs font-arcade hover:bg-purple-900/60 transition-all">
+                        Vapor +4 Wild
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- CSS Code Modal -->
+    <div id="exportModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+        <div class="bg-slate-950 border-2 border-pink-500/80 rounded-2xl max-w-2xl w-full p-6 relative shadow-[0_0_50px_rgba(255,0,127,0.3)]">
+            <button onclick="closeExportModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-lg">
+                <i class="fas fa-times"></i>
+            </button>
+            
+            <h3 class="font-cyber font-bold text-lg text-pink-400 mb-1 flex items-center gap-2">
+                <i class="fas fa-code text-cyan-400"></i> RETRO NEON CARD CSS & HTML CODE
+            </h3>
+            <p class="text-xs font-arcade text-slate-400 mb-4 tracking-widest">কপি করে আপনার ওয়েবসাইটে সরাসরি ব্যবহার করতে পারেন।</p>
+
+            <div class="relative bg-slate-900 border border-slate-800 rounded-xl p-4 mb-4">
+                <button onclick="copyCodeSnippet()" class="absolute top-3 right-3 px-3 py-1 bg-pink-950 border border-pink-500 text-pink-300 rounded text-xs font-arcade hover:bg-pink-900 transition-all flex items-center gap-1.5">
+                    <i class="fas fa-copy"></i> <span id="copyBtnText">COPY CODE</span>
+                </button>
+                <pre id="codeSnippet" class="font-arcade text-sm text-cyan-300 overflow-x-auto max-h-64 pr-24"></pre>
+            </div>
+
+            <div class="flex justify-end">
+                <button onclick="closeExportModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-arcade tracking-wider transition-all">
+                    CLOSE WINDOW
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-pink-950 border border-pink-500 text-pink-200 px-4 py-2 rounded-xl text-xs font-arcade shadow-[0_0_20px_rgba(255,0,127,0.5)] transform translate-y-20 opacity-0 transition-all duration-300 z-50 flex items-center gap-2">
+        <i class="fas fa-check-circle text-cyan-400"></i>
+        <span id="toastMsg">Code copied to clipboard!</span>
+    </div>
+
+    <footer class="border-t border-pink-500/20 bg-slate-950/90 py-4 text-center relative z-10">
+        <p class="text-xs font-arcade text-slate-400 tracking-widest">
+            RETRO NEON UNO CARD ENGINE // BUILT WITH TAILWIND CSS, CSS GRID & WEB AUDIO SYNTH
+        </p>
+    </footer>
+
+    <script>
+        // Application State
+        let currentColor = 'pink';
+        let currentValue = '7';
+        let currentSubTitle = 'SYNTH NODE';
+        let currentDisplayHtml = '7';
+        let isFlipped = false;
+        let sfxEnabled = true;
+
+        // Web Audio Synthesizer for 8-bit Retro Sounds
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (AudioContext) {
+                    audioCtx = new AudioContext();
+                }
+            }
+        }
+
+        function playRetroBeep(freq = 440, type = 'square', duration = 0.08) {
+            if (!sfxEnabled) return;
+            try {
+                initAudio();
+                if (!audioCtx) return;
+
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+                gain.gain.setValueAtTime(0.06, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch(e) {
+                // Ignore audio restriction errors
+            }
+        }
+
+        function playLaserSound() {
+            if (!sfxEnabled) return;
+            try {
+                initAudio();
+                if (!audioCtx) return;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(110, audioCtx.currentTime + 0.15);
+
+                gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.15);
+            } catch(e) {}
+        }
+
+        function toggleAudio() {
+            sfxEnabled = !sfxEnabled;
+            document.getElementById('sfxStateText').innerText = sfxEnabled ? 'ON' : 'OFF';
+            document.getElementById('sfxIcon').className = sfxEnabled ? 'fas fa-volume-up text-pink-400' : 'fas fa-volume-mute text-slate-500';
+            if (sfxEnabled) playRetroBeep(600, 'square', 0.1);
+        }
+
+        // Build Dynamic Numeric Buttons Grid
+        const numGrid = document.getElementById('numGrid');
+        for (let i = 0; i <= 9; i++) {
+            const btn = document.createElement('button');
+            btn.className = `py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-pink-400 font-cyber font-bold text-sm text-slate-200 transition-all ${i === 7 ? 'border-pink-500 text-pink-400 bg-pink-950/40' : ''}`;
+            btn.innerText = i;
+            btn.onclick = () => {
+                Array.from(numGrid.children).forEach(b => b.classList.remove('border-pink-500', 'text-pink-400', 'bg-pink-950/40'));
+                btn.classList.add('border-pink-500', 'text-pink-400', 'bg-pink-950/40');
+                setCardValue(i.toString(), 'SYNTH NODE', i.toString());
+            };
+            numGrid.appendChild(btn);
+        }
+
+        // 3D Card Stage Interaction Logic
+        const cardStage = document.getElementById('cardStage');
+        const cyberCard = document.getElementById('cyberCard');
+        const holoFoil = document.getElementById('holoFoilFront');
+
+        cardStage.addEventListener('mousemove', (e) => {
+            const rect = cardStage.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+
+            const rotateX = ((y - centerY) / centerY) * -20;
+            const rotateY = ((x - centerX) / centerX) * 20;
+
+            const flipRotation = isFlipped ? 180 : 0;
+            cyberCard.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY + flipRotation}deg)`;
+
+            const holoX = (x / rect.width) * 100;
+            const holoY = (y / rect.height) * 100;
+            holoFoil.style.backgroundPosition = `${holoX}% ${holoY}%`;
+        });
+
+        cardStage.addEventListener('mouseleave', () => {
+            const flipRotation = isFlipped ? 180 : 0;
+            cyberCard.style.transform = `rotateX(0deg) rotateY(${flipRotation}deg)`;
+            holoFoil.style.backgroundPosition = '50% 50%';
+        });
+
+        function setCardColor(color) {
+            currentColor = color;
+            const appBody = document.getElementById('appBody');
+            appBody.className = appBody.className.replace(/theme-\w+/g, '') + ` theme-${color}`;
+            
+            playRetroBeep(520, 'square', 0.08);
+            showStatusHUD(`COLOR: ${color.toUpperCase()}`);
+        }
+
+        function setCardValue(val, subTitle, displayHtml, forcedTheme = null) {
+            currentValue = val;
+            currentSubTitle = subTitle;
+            currentDisplayHtml = displayHtml;
+
+            if (forcedTheme) {
+                setCardColor(forcedTheme);
+            }
+
+            document.getElementById('cornerTopVal').innerHTML = displayHtml;
+            document.getElementById('cornerBottomVal').innerHTML = displayHtml;
+            document.getElementById('centerValueDisplay').innerHTML = displayHtml;
+            document.getElementById('cardSubTitle').innerText = subTitle;
+
+            playRetroBeep(750, 'sawtooth', 0.06);
+            showStatusHUD(`VALUE: ${val}`);
+        }
+
+        function flipCard() {
+            isFlipped = !isFlipped;
+            if (isFlipped) {
+                cyberCard.classList.add('flipped');
+            } else {
+                cyberCard.classList.remove('flipped');
+            }
+            playRetroBeep(320, 'triangle', 0.12);
+            showStatusHUD(isFlipped ? 'CARD BACK' : 'CARD FRONT');
+        }
+
+        function toggleEffect(effect) {
+            if (effect === 'scanlines') {
+                const crt = document.getElementById('crtOverlay');
+                crt.style.display = document.getElementById('toggleScanlines').checked ? 'block' : 'none';
+            } else if (effect === 'holo') {
+                const holo = document.getElementById('holoFoilFront');
+                holo.style.display = document.getElementById('toggleHolo').checked ? 'block' : 'none';
+            }
+            playRetroBeep(450, 'sine', 0.05);
+        }
+
+        function triggerLaserBurst() {
+            playLaserSound();
+            cyberCard.style.transform = `rotateX(${(Math.random()-0.5)*35}deg) rotateY(${(Math.random()-0.5)*35}deg) scale(1.06)`;
+            setTimeout(() => {
+                cyberCard.style.transform = `rotateX(0deg) rotateY(${isFlipped ? 180 : 0}deg) scale(1)`;
+            }, 300);
+            showStatusHUD('SYNTH OVERDRIVE');
+        }
+
+        function loadPreset(color, val, subTitle, displayHtml = null) {
+            setCardColor(color);
+            setCardValue(val, subTitle, displayHtml || val);
+        }
+
+        function randomizeCard() {
+            const colors = ['pink', 'cyan', 'yellow', 'green', 'purple'];
+            const presets = [
+                { val: '0', title: 'ARCADE NODE', html: '0' },
+                { val: '4', title: 'OUTRUN NODE', html: '4' },
+                { val: '7', title: 'SYNTH NODE', html: '7' },
+                { val: 'SKIP', title: 'RETRO SKIP', html: '<i class="fas fa-forward-step"></i>' },
+                { val: 'REV', title: 'SIGNAL REVERSE', html: '<i class="fas fa-backward-step"></i>' },
+                { val: '+2', title: 'SYNTH BOOST', html: '+2' },
+                { val: '+4', title: 'NEON MELTDOWN', html: '+4', forceColor: 'purple' }
+            ];
+
+            const randColor = colors[Math.floor(Math.random() * colors.length)];
+            const randPreset = presets[Math.floor(Math.random() * presets.length)];
+
+            loadPreset(randPreset.forceColor || randColor, randPreset.val, randPreset.title, randPreset.html);
+            triggerLaserBurst();
+        }
+
+        function showStatusHUD(msg) {
+            const hud = document.getElementById('hudStatus');
+            hud.innerText = msg;
+            hud.classList.add('text-yellow-300');
+            setTimeout(() => {
+                hud.innerText = 'ARCADE_READY';
+                hud.classList.remove('text-yellow-300');
+            }, 1200);
+        }
+
+        // Export CSS Snippet Modal
+        function openExportModal() {
+            const modal = document.getElementById('exportModal');
+            const snippet = document.getElementById('codeSnippet');
+            
+            const cssSnippetText = `<!-- Retro Neon UNO Card (${currentColor.toUpperCase()} - ${currentValue}) -->
+<div class="retro-uno-card theme-${currentColor} border-3 border-pink-500 bg-slate-950 rounded-3xl p-4 w-72 h-[460px] relative shadow-[0_0_25px_#ff007f] font-['Orbitron'] text-white">
+  <!-- Corner Value -->
+  <div class="flex justify-between font-bold text-3xl">
+    <span>${currentValue}</span>
+    <span class="text-xs font-mono text-pink-400">SYS_84</span>
+  </div>
+
+  <!-- Center Badge -->
+  <div class="my-10 mx-auto w-48 h-64 bg-slate-900 border-2 border-pink-500/80 rounded-2xl flex flex-col justify-center items-center">
+    <div class="text-7xl font-black text-white drop-shadow-[0_0_15px_var(--theme-color)]">
+      ${currentValue}
+    </div>
+    <div class="text-xs tracking-widest text-cyan-300 mt-2 font-mono">
+      ${currentSubTitle}
+    </div>
+  </div>
+</div>`;
+
+            snippet.innerText = cssSnippetText;
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            playRetroBeep(650, 'square', 0.1);
+        }
+
+        function closeExportModal() {
+            const modal = document.getElementById('exportModal');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+        }
+
+        function copyCodeSnippet() {
+            const text = document.getElementById('codeSnippet').innerText;
+            const dummy = document.createElement('textarea');
+            document.body.appendChild(dummy);
+            dummy.value = text;
+            dummy.select();
+            document.execCommand('copy');
+            document.body.removeChild(dummy);
+
+            const copyBtnText = document.getElementById('copyBtnText');
+            copyBtnText.innerText = 'COPIED!';
+            showToast('Retro Code Copied to Clipboard!');
+            playRetroBeep(900, 'square', 0.12);
+
+            setTimeout(() => {
+                copyBtnText.innerText = 'COPY CODE';
+            }, 2000);
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMsg').innerText = msg;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 2500);
+        }
+    </script>
+</body>
+</html>

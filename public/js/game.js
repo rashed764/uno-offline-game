@@ -29,7 +29,9 @@
     targetPlayers: 2,
     matchRewardId: null,
     walletId: window.UnoEconomy?.getWalletId(),
-    walletReady: false
+    walletReady: false,
+    isAdmin: false,
+    wantsAdminMode: new URLSearchParams(window.location.search).get('admin') === '1'
   };
 
   // Expose appState globally for testing or dev console inspection
@@ -51,10 +53,17 @@
     const profile = economy.getProfile();
     const deck = economy.catalog.decks.find(item => item.id === profile.selected.deck);
     const table = economy.catalog.tables.find(item => item.id === profile.selected.table);
+    document.documentElement.dataset.deckTheme = deck?.id || 'classic';
     if (deck) {
       document.documentElement.style.setProperty('--deck-back-surface', deck.theme.surface);
       document.documentElement.style.setProperty('--deck-back-panel', deck.theme.panel);
       document.documentElement.style.setProperty('--deck-back-emblem', deck.theme.emblem);
+    }
+    const drawDeck = document.getElementById('draw-deck-3d');
+    if (drawDeck && deck && drawDeck.dataset.deckTheme !== deck.id) {
+      const cardCount = Math.max(1, drawDeck.children.length);
+      drawDeck.replaceChildren(...Array.from({ length: cardCount }, (_, index) => create3DCardElement(null, index, 0, true, deck.id)));
+      drawDeck.dataset.deckTheme = deck.id;
     }
     if (table) {
       document.documentElement.style.setProperty('--table-theme-surface', table.theme.surface);
@@ -68,6 +77,7 @@
     const closeButton = document.getElementById('btn-shop-close');
     const modal = document.getElementById('theme-shop-modal');
     const catalogEl = document.getElementById('theme-shop-catalog');
+    const adminNote = document.getElementById('shop-admin-note');
     if (!economy || !openButton || !modal || !catalogEl) return;
     const renderThemePreview = (category, item, preview) => {
       preview.replaceChildren();
@@ -102,10 +112,12 @@
           flipInner.style.setProperty('--deck-back-emblem', item.theme.emblem);
           const front = document.createElement('span');
           front.className = 'shop-flip-face';
-          front.appendChild(create3DCardElement(design, index));
+          const frontCard = create3DCardElement(design, index, 0, false, item.id);
+          front.appendChild(frontCard);
           const back = document.createElement('span');
           back.className = 'shop-flip-face shop-flip-back';
-          back.appendChild(create3DCardElement(null, index, 0, true));
+          const backCard = create3DCardElement(null, index, 0, true, item.id);
+          back.appendChild(backCard);
           flipInner.append(front, back);
           const label = document.createElement('span');
           label.className = 'shop-flip-card-label';
@@ -189,10 +201,10 @@
           const action = document.createElement('button');
           action.type = 'button';
           action.className = 'shop-item-action';
-          action.dataset.shopAction = unlocked ? 'select' : 'purchase';
-          action.textContent = equipped ? 'Equipped' : (unlocked ? 'Use' : 'Buy');
-          action.disabled = equipped || (!unlocked && profile.coins < item.cost);
-          if (!unlocked && profile.coins < item.cost) action.textContent = 'Too costly';
+          action.dataset.shopAction = appState.isAdmin && !equipped ? 'admin-equip' : (unlocked ? 'select' : 'purchase');
+          action.textContent = equipped ? 'Equipped' : (appState.isAdmin ? 'Admin Equip' : (unlocked ? 'Use' : 'Buy'));
+          action.disabled = equipped || (!appState.isAdmin && !unlocked && profile.coins < item.cost);
+          if (!appState.isAdmin && !unlocked && profile.coins < item.cost) action.textContent = 'Too costly';
           const actions = document.createElement('div');
           actions.className = 'shop-item-actions';
           actions.appendChild(action);
@@ -213,6 +225,7 @@
         section.appendChild(grid);
         catalogEl.appendChild(section);
       });
+      adminNote?.classList.toggle('hidden', !appState.isAdmin);
       setBalance();
     };
 
@@ -252,6 +265,15 @@
       const itemEl = button?.closest('.shop-item');
       if (!button || !itemEl) return;
       const { category, itemId } = itemEl.dataset;
+      if (button.dataset.shopAction === 'admin-equip' && appState.isAdmin) {
+        economy.grantPurchase(category, itemId);
+        if (economy.select(category, itemId)) {
+          applySelectedThemes();
+          showToast('Admin preview: theme equipped for free.');
+        }
+        renderCatalog();
+        return;
+      }
       if (button.dataset.shopAction === 'purchase') {
         if (!appState.walletReady) {
           showToast('Your saved wallet is still loading.');
@@ -279,6 +301,7 @@
     setBalance();
     renderCatalog();
     window.addEventListener('uno-wallet-balance-changed', renderCatalog);
+    window.addEventListener('uno-admin-mode-changed', renderCatalog);
   }
   applySelectedThemes();
 
@@ -471,12 +494,15 @@
       appState.myPlayerId = socket.id;
     }
     appState.walletReady = false;
-    socket.emit('wallet_login', { walletId: appState.walletId }, response => {
+    socket.emit('wallet_login', { walletId: appState.walletId, adminMode: appState.wantsAdminMode }, response => {
       if (!response?.ok) {
         showToast(response?.error || 'Could not load your saved coin wallet.');
         return;
       }
       appState.walletReady = true;
+      appState.isAdmin = response.adminMode === true;
+      if (appState.wantsAdminMode && !appState.isAdmin) showToast('Admin mode is only available on the game server computer.');
+      window.dispatchEvent(new CustomEvent('uno-admin-mode-changed', { detail: { isAdmin: appState.isAdmin } }));
       syncWalletBalance(response.coins);
     });
   });
@@ -507,14 +533,16 @@
     updatePlayersLobbyList(playerList);
 
     const wallet = window.UnoEconomy?.getProfile().coins ?? 0;
-    if (mode === 'lan' && !player?.isHost && wallet < stake) {
+    if (mode === 'lan' && !player?.isHost && !appState.isAdmin && wallet < stake) {
       socket.emit('leave_room', { roomId });
       appState.roomId = null;
       showToast(`This room needs ${stake} coins, but your balance is ${wallet}.`);
       return;
     }
     const wagerInfo = document.getElementById('lobby-wager-info');
-    if (wagerInfo) wagerInfo.textContent = `${stake} coin stake · ${targetPlayers} players · Winner's pot: ${stake * targetPlayers} coins`;
+    if (wagerInfo) wagerInfo.textContent = appState.isAdmin
+      ? (stake === 0 ? `Admin test match · ${targetPlayers} players · No coins used.` : `Admin mode · Your stake is waived; other players retain their ${stake} coin stake.`)
+      : `${stake} coin stake · ${targetPlayers} players · Winner's pot: ${stake * targetPlayers} coins`;
 
     // In AI Mode, immediately trigger match start for the host
     if (mode === 'ai' && player?.isHost) {
@@ -542,11 +570,18 @@
     updatePlayersLobbyList(players);
   });
 
+  socket.on('room_wager_updated', ({ stake = 0, targetPlayers } = {}) => {
+    appState.stake = Number(stake);
+    if (Number.isInteger(Number(targetPlayers))) appState.targetPlayers = Number(targetPlayers);
+    const wagerInfo = document.getElementById('lobby-wager-info');
+    if (wagerInfo) wagerInfo.textContent = 'Admin test room · No coins will be charged or awarded.';
+  });
+
   // Game Started Event - Immediate transition & authoritative UI render
   socket.on('game_started', (payload) => {
     const gameState = (payload && payload.gameState) ? payload.gameState : payload;
     const wagerInfo = payload?.wager || {};
-    appState.stake = Number(wagerInfo.stake || appState.stake || 50);
+    appState.stake = Number(wagerInfo.stake ?? appState.stake ?? 50);
     appState.targetPlayers = Number(wagerInfo.playerCount || appState.targetPlayers || gameState?.players?.length || 2);
     appState.matchRewardId = payload?.matchId || `${appState.roomId || 'match'}:${Date.now()}`;
     appState.latestServerState = gameState;
@@ -656,17 +691,19 @@
     const restartButton = document.getElementById('btn-restart');
     if (restartButton) restartButton.classList.toggle('hidden', !appState.isHost);
     let payout = 0;
+    const matchStake = Number(wager?.stake ?? appState.stake ?? 50);
     const settledMatchId = matchId || appState.matchRewardId;
-    if (window.UnoEconomy && settledMatchId) {
+    if (!appState.isAdmin && matchStake > 0 && window.UnoEconomy && settledMatchId) {
       const isLocalWinner = winnerId
         ? String(winnerId) === String(appState.myPlayerId || socket.id)
         : String(winnerName || '').trim().toLowerCase() === String(appState.playerName || '').trim().toLowerCase();
-      const stake = Number(wager?.stake || appState.stake || 50);
       const playerCount = Number(wager?.playerCount || appState.targetPlayers || 2);
-      payout = isLocalWinner ? stake * playerCount : 0;
+      payout = isLocalWinner ? matchStake * playerCount : 0;
       appState.matchRewardId = null;
     }
-    if (msgEl) msgEl.textContent = `${message || `${winnerName} has won the match!`} ${payout ? `You won the ${payout} coin pot!` : `Your ${appState.stake} coin stake was lost.`}`.trim();
+    if (msgEl) msgEl.textContent = appState.isAdmin || matchStake === 0
+      ? `${message || `${winnerName} has won the match!`} Admin mode: no coins were spent or awarded.`
+      : `${message || `${winnerName} has won the match!`} ${payout ? `You won the ${payout} coin pot!` : `Your ${appState.stake} coin stake was lost.`}`.trim();
     if (modalEl) modalEl.classList.remove('hidden');
   });
 
@@ -721,32 +758,9 @@
       document.body.appendChild(overlay);
     }
 
-    const ghostEl = document.createElement('div');
-    ghostEl.className = 'ghost-card-anim';
-
-    if (cardData && cardData.color && cardData.value) {
-      const isWild = (cardData.color === 'wild' || cardData.color === 'wild_draw4' || cardData.value === 'wild' || cardData.value === 'wild_draw4');
-      const colorClass = isWild ? 'card-black' : `card-${cardData.color}`;
-      const displayVal = getCardDisplayValue(cardData.value);
-      const displayIcon = getCardDisplayIcon(cardData.value);
-      ghostEl.className += ` card-front ${colorClass}`;
-      ghostEl.innerHTML = `
-        <div class="card-inner">
-          <div class="card-corner top-left">${displayVal}</div>
-          <div class="card-inner-ellipse">
-            ${displayIcon ? `<i class="${displayIcon}"></i>` : `<span class="card-center-val">${displayVal}</span>`}
-          </div>
-          <div class="card-corner bottom-right">${displayVal}</div>
-        </div>
-      `;
-    } else {
-      ghostEl.className += ' card-back';
-      ghostEl.innerHTML = `
-        <div class="card-inner">
-          <div class="card-inner-ellipse"></div>
-        </div>
-      `;
-    }
+    const isFaceUp = Boolean(cardData && cardData.color && cardData.value);
+    const ghostEl = create3DCardElement(isFaceUp ? cardData : null, 0, 0, !isFaceUp);
+    ghostEl.classList.add('ghost-card-anim');
 
     // Dynamically read width and height of an actual reference card on the board (e.g. .card-3d or draw deck)
     const referenceCard = document.querySelector('.card-3d') || document.querySelector('.deck-3d-stack') || fromElement;
@@ -1441,13 +1455,26 @@
   /**
    * Creates a 3D UNO Card Element (Face Front or Card Back)
    */
-  function create3DCardElement(card, index = 0, angle = 0, isBack = false) {
+  function create3DCardElement(card, index = 0, angle = 0, isBack = false, themeId = document.documentElement.dataset.deckTheme) {
     const cardEl = document.createElement('div');
+    const isCyberpunk = themeId === 'cyberpunk';
 
     if (isBack) {
       cardEl.className = 'card-3d card-back';
+      if (isCyberpunk) cardEl.classList.add('cyberpunk-deck-back');
       cardEl.style.setProperty('--i', index);
-      cardEl.innerHTML = `
+      cardEl.innerHTML = isCyberpunk ? `
+        <div class="card-inner cyber-back-inner">
+          <div class="cyber-scanline-overlay"></div>
+          <div class="cyber-back-hud"><span>SECURE_DATA_CARD</span><span>ENCRYPTED</span></div>
+          <div class="cyber-back-emblem">
+            <div class="cyber-back-orbit"><i class="fa-solid fa-microchip"></i></div>
+            <strong>UNO</strong>
+            <small>CYBERPUNK ED.</small>
+          </div>
+          <div class="cyber-back-footer"><span>ID: 0x90A2F</span><span>NEO-TOKYO 2077</span></div>
+        </div>
+      ` : `
         <div class="card-inner">
           <div class="card-inner-ellipse"></div>
         </div>
@@ -1460,12 +1487,40 @@
     const colorClass = isWild ? 'card-black' : `card-${safeCard.color}`;
     const displayVal = getCardDisplayValue(safeCard.value);
     const displayIcon = getCardDisplayIcon(safeCard.value);
+    const cardValueText = String(safeCard.value || '0').toUpperCase();
+    const cyberDisplayVal = displayIcon ? cardValueText : displayVal;
+    const safeDisplayVal = cyberDisplayVal.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
+    const safeCardValue = cardValueText.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
+    const subtitle = ({ skip: 'SYSTEM OVERRIDE', reverse: 'SIGNAL REVERSAL', draw2: 'BUFFER OVERFLOW', wild: 'WILD SIGNAL', wild_draw4: 'CORE MELTDOWN' })[String(safeCard.value)] || (isWild ? 'WILD SIGNAL' : 'DATA NODE');
 
     cardEl.className = `card-3d card-front ${colorClass}`;
+    if (isCyberpunk) cardEl.classList.add('cyberpunk-card-face', 'glitch-active');
     cardEl.style.setProperty('--i', index);
     cardEl.style.setProperty('--r', angle);
 
-    cardEl.innerHTML = `
+    cardEl.innerHTML = isCyberpunk ? `
+      <div class="card-inner cyber-front-inner">
+        <div class="cyber-holo-foil"></div>
+        <div class="cyber-scanline-overlay"></div>
+        <div class="cyber-hud-top">
+          <div class="cyber-corner-value"><strong class="glitch-element" data-text="${safeDisplayVal}">${safeDisplayVal}</strong><small>SYS.${safeCardValue.padStart(2, '0')}</small></div>
+          <div class="cyber-status"><i></i><span>READY</span></div>
+        </div>
+        <div class="cyber-front-center">
+          <div class="cyber-orbit-ring"></div>
+          <div class="cyber-value-badge">
+            <div class="cyber-center-value pulse-neon glitch-element" data-text="${safeDisplayVal}">${displayIcon ? `<i class="${displayIcon}"></i>` : safeDisplayVal}</div>
+            <div class="cyber-subtitle">${subtitle}</div>
+          </div>
+        </div>
+        <div class="cyber-hud-bottom">
+          <div class="cyber-corner-value"><strong class="glitch-element" data-text="${safeDisplayVal}">${safeDisplayVal}</strong><small>SYS.${safeCardValue.padStart(2, '0')}</small></div>
+          <span>CYBER_UNO // REV_2.0</span>
+        </div>
+        <i class="cyber-tech-corner top-left"></i><i class="cyber-tech-corner top-right"></i>
+        <i class="cyber-tech-corner bottom-left"></i><i class="cyber-tech-corner bottom-right"></i>
+      </div>
+    ` : `
       <div class="card-inner">
         <div class="card-corner top-left">${displayVal}</div>
         <div class="card-inner-ellipse">
@@ -2594,30 +2649,40 @@
   function setupMatchWager() {
     const modal = document.getElementById('match-setup-modal');
     const amountInput = document.getElementById('match-wager-amount');
+    const wagerField = document.getElementById('match-wager-field');
     const playerSelect = document.getElementById('match-player-count');
     const payoutPreview = document.getElementById('match-payout-preview');
     const walletPreview = document.getElementById('match-wallet-preview');
     const continueButton = document.getElementById('btn-match-setup-confirm');
     if (!modal || !amountInput || !playerSelect || !continueButton) return;
+    const setupTitle = document.getElementById('match-setup-title');
 
     const updatePreview = () => {
+      wagerField?.classList.toggle('hidden', appState.isAdmin);
+      if (setupTitle) setupTitle.innerHTML = appState.isAdmin
+        ? '<i class="fa-solid fa-shield-halved"></i> Admin Match Setup'
+        : '<i class="fa-solid fa-coins"></i> Set Match Wager';
       const stake = Number(amountInput.value);
       const players = Number(playerSelect.value);
       const coins = window.UnoEconomy?.getProfile().coins ?? 0;
-      const validStake = Number.isInteger(stake) && stake >= 50 && stake <= 10000;
-      const pot = validStake ? stake * players : 0;
-      if (payoutPreview) payoutPreview.textContent = validStake
+      const validStake = appState.isAdmin || (Number.isInteger(stake) && stake >= 50 && stake <= 10000);
+      const pot = validStake && !appState.isAdmin ? stake * players : 0;
+      if (payoutPreview) payoutPreview.textContent = appState.isAdmin
+        ? 'Admin test match: no coins are required or awarded.'
+        : validStake
         ? `Winner gets the ${pot.toLocaleString()} coin pot (${stake} × ${players} players).`
         : 'Choose a stake from 50 to 10,000 coins.';
       if (walletPreview) {
-        walletPreview.textContent = !appState.walletReady
+        walletPreview.textContent = appState.isAdmin
+          ? 'Admin mode is active. Match wagers and shop costs are disabled.'
+          : !appState.walletReady
           ? 'Connecting to your saved wallet…'
           : validStake && coins >= stake
           ? `Your balance: ${coins.toLocaleString()} coins · Stake: ${stake.toLocaleString()} coins`
           : `Your balance: ${coins.toLocaleString()} coins · Not enough coins for this stake.`;
-        walletPreview.classList.toggle('insufficient', appState.walletReady && (!validStake || coins < stake));
+        walletPreview.classList.toggle('insufficient', !appState.isAdmin && appState.walletReady && (!validStake || coins < stake));
       }
-      continueButton.disabled = !appState.walletReady || !validStake || coins < stake;
+      continueButton.disabled = !appState.walletReady || (!appState.isAdmin && (!validStake || coins < stake));
     };
 
     const close = () => {
@@ -2629,6 +2694,7 @@
     amountInput.addEventListener('input', updatePreview);
     playerSelect.addEventListener('change', updatePreview);
     window.addEventListener('uno-wallet-balance-changed', updatePreview);
+    window.addEventListener('uno-admin-mode-changed', updatePreview);
     modal.addEventListener('click', event => { if (event.target === modal) close(); });
 
     document.getElementById('btn-vs-ai')?.addEventListener('click', () => {
@@ -2642,12 +2708,13 @@
       modal.classList.remove('hidden');
     });
     continueButton.addEventListener('click', () => {
-      const stake = Number(amountInput.value);
+      const requestedStake = Number(amountInput.value);
+      const stake = appState.isAdmin ? 0 : requestedStake;
       const targetPlayers = Number(playerSelect.value);
       const mode = appState.pendingGameMode;
-      if (!mode || !Number.isInteger(stake) || stake < 50 || stake > 10000
-        || ![2, 3, 4].includes(targetPlayers) || !appState.walletReady
-        || window.UnoEconomy.getProfile().coins < stake) {
+      if (!mode || (!appState.isAdmin && (!Number.isInteger(stake) || stake < 50 || stake > 10000
+        || !appState.walletReady || window.UnoEconomy.getProfile().coins < stake))
+        || ![2, 3, 4].includes(targetPlayers) || !appState.walletReady) {
         updatePreview();
         return;
       }
@@ -2697,10 +2764,46 @@
     });
   }
 
+  function setupCyberpunkCardTilt() {
+    const selectors = '.cyberpunk-card-face, .cyberpunk-deck-back';
+    document.addEventListener('pointermove', event => {
+      if (event.pointerType === 'touch') return;
+      const card = event.target.closest?.(selectors);
+      if (!card) return;
+      const rect = card.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      const x = (event.clientX - rect.left) / rect.width;
+      const y = (event.clientY - rect.top) / rect.height;
+      card.style.setProperty('--cyber-tilt-x', `${(0.5 - y) * 36}deg`);
+      card.style.setProperty('--cyber-tilt-y', `${(x - 0.5) * 36}deg`);
+      card.style.setProperty('--cyber-holo-x', `${x * 100}%`);
+      card.style.setProperty('--cyber-holo-y', `${y * 100}%`);
+    });
+    document.addEventListener('pointerout', event => {
+      const card = event.target.closest?.(selectors);
+      if (!card || card.contains(event.relatedTarget)) return;
+      card.style.setProperty('--cyber-tilt-x', '0deg');
+      card.style.setProperty('--cyber-tilt-y', '0deg');
+      card.style.setProperty('--cyber-holo-x', '50%');
+      card.style.setProperty('--cyber-holo-y', '50%');
+    });
+    document.addEventListener('click', event => {
+      const card = event.target.closest?.(selectors);
+      if (!card) return;
+      card.classList.remove('cyberpunk-glitch-burst');
+      void card.offsetWidth;
+      card.classList.add('cyberpunk-glitch-burst');
+    });
+    document.addEventListener('animationend', event => {
+      if (event.animationName === 'cyber-glitch-burst') event.target.classList.remove('cyberpunk-glitch-burst');
+    });
+  }
+
   function bindDomEvents() {
     setupStartupScreen();
     setupMatchWager();
     setupThemeShop();
+    setupCyberpunkCardTilt();
     const nameInput = document.getElementById('player-name');
     const btnShowJoin = document.getElementById('btn-show-join');
     const joinBox = document.getElementById('join-box');
@@ -2883,7 +2986,7 @@
           showToast('Only the host can start the next match.');
           return;
         }
-        if ((window.UnoEconomy?.getProfile().coins ?? 0) < appState.stake) {
+        if (!appState.isAdmin && (window.UnoEconomy?.getProfile().coins ?? 0) < appState.stake) {
           showToast(`You need ${appState.stake} coins to play again. Return to the menu to choose a lower stake.`);
           return;
         }

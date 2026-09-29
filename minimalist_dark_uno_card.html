@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minimalist Dark UNO Card</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800;900&family=Space+Grotesk:wght@500;700;900&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            /* Default Red Color Identity */
+            --card-color: #ff3355;
+            --card-glow: rgba(255, 51, 85, 0.35);
+            --bg-dark: #07080a;
+            --card-bg: #111319;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--bg-dark);
+            color: #f8fafc;
+            user-select: none;
+            overflow: hidden;
+        }
+
+        .font-num {
+            font-family: 'Space Grotesk', sans-serif;
+        }
+
+        /* 3D Perspective Canvas */
+        .perspective-stage {
+            perspective: 1200px;
+        }
+
+        /* 3D Card Wrapper */
+        .card-3d-inner {
+            transform-style: preserve-3d;
+            transition: transform 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+
+        .card-3d-inner.flipped {
+            transform: rotateY(180deg);
+        }
+
+        /* Front & Back Faces */
+        .card-face-front, .card-face-back {
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            position: absolute;
+            inset: 0;
+            border-radius: 28px;
+        }
+
+        .card-face-back {
+            transform: rotateY(180deg);
+        }
+
+        /* Dynamic Gloss Sheen Layer */
+        .glass-sheen {
+            background: linear-gradient(
+                135deg,
+                rgba(255, 255, 255, 0.15) 0%,
+                rgba(255, 255, 255, 0.03) 45%,
+                transparent 60%,
+                rgba(0, 0, 0, 0.5) 100%
+            );
+            pointer-events: none;
+        }
+
+        /* Ambient Glow Shadow */
+        .card-glow-shadow {
+            box-shadow: 
+                0 25px 50px -12px rgba(0, 0, 0, 0.9),
+                0 0 30px 2px var(--card-glow),
+                inset 0 1px 1px 0 rgba(255, 255, 255, 0.12);
+        }
+
+        /* High-Visibility Color Themes for Instant In-Game Recognition */
+        .color-red {
+            --card-color: #ff3355;
+            --card-glow: rgba(255, 51, 85, 0.4);
+        }
+        .color-blue {
+            --card-color: #00d2ff;
+            --card-glow: rgba(0, 210, 255, 0.4);
+        }
+        .color-green {
+            --card-color: #00e676;
+            --card-glow: rgba(0, 230, 118, 0.4);
+        }
+        .color-yellow {
+            --card-color: #ffcc00;
+            --card-glow: rgba(255, 204, 0, 0.4);
+        }
+        .color-wild {
+            --card-color: #e0e7ff;
+            --card-glow: rgba(168, 85, 247, 0.45);
+        }
+
+        /* Custom Wild Rainbow Gradient Outline */
+        .wild-ring {
+            background: conic-gradient(#ff3355, #ffcc00, #00e676, #00d2ff, #ff3355);
+        }
+    </style>
+</head>
+<body id="appBody" class="min-h-screen w-full flex flex-col items-center justify-center p-4 color-red relative">
+
+    <!-- Ambient Dynamic Glow Background -->
+    <div id="ambientGlow" class="fixed inset-0 pointer-events-none transition-all duration-700 opacity-20"
+         style="background: radial-gradient(circle at center, var(--card-color) 0%, transparent 65%);"></div>
+
+    <!-- MAIN CARD CONTAINER -->
+    <div class="perspective-stage relative w-[290px] sm:w-[320px] h-[450px] sm:h-[490px] cursor-pointer group">
+        
+        <div id="unoCard" class="card-3d-inner w-full h-full relative rounded-[28px]" onclick="toggleFlip()">
+            
+            <!-- ================= CARD FRONT ================= -->
+            <div class="card-face-front w-full h-full bg-[#0d0f14] border border-white/10 rounded-[28px] p-5 flex flex-col justify-between overflow-hidden card-glow-shadow relative transition-colors duration-300">
+                
+                <!-- Sheen Overlay -->
+                <div id="cardSheen" class="glass-sheen absolute inset-0 z-20 rounded-[28px]"></div>
+
+                <!-- Color Identity Border Accent Strip -->
+                <div class="absolute inset-x-0 top-0 h-1.5 transition-colors duration-500" style="background-color: var(--card-color);"></div>
+                <div class="absolute inset-x-0 bottom-0 h-1.5 transition-colors duration-500" style="background-color: var(--card-color);"></div>
+
+                <!-- TOP CORNER IDENTIFIER -->
+                <div class="relative z-10 flex justify-between items-start">
+                    <div class="flex flex-col items-start">
+                        <!-- Distinct Colored Corner Value -->
+                        <span id="cornerTopVal" class="font-num font-black text-3xl sm:text-4xl leading-none tracking-tight transition-colors duration-300" style="color: var(--card-color);">
+                            7
+                        </span>
+                        <span class="text-[9px] font-extrabold tracking-[0.25em] text-white/40 uppercase mt-0.5">UNO</span>
+                    </div>
+
+                    <!-- Prominent Color Badge for Immediate Game Recognition -->
+                    <div class="flex items-center gap-1.5 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/10">
+                        <div class="w-3 h-3 rounded-full transition-colors duration-500" style="background-color: var(--card-color); box-shadow: 0 0 10px var(--card-color);"></div>
+                        <span id="colorNameTag" class="text-[10px] font-bold tracking-wider text-white/90 uppercase">RED</span>
+                    </div>
+                </div>
+
+                <!-- CENTER ARTWORK / NUMBER EMBLEM -->
+                <div class="relative z-10 my-auto flex justify-center items-center">
+                    
+                    <!-- Outer Colored Ring Outer Oval -->
+                    <div id="centerOval" class="w-40 h-60 border-2 rounded-full flex flex-col items-center justify-center relative bg-gradient-to-b from-white/[0.04] to-transparent backdrop-blur-sm transition-all duration-500"
+                         style="border-color: var(--card-color); box-shadow: inset 0 0 20px var(--card-glow);">
+                        
+                        <!-- Inner Glow Accent Oval -->
+                        <div class="absolute inset-2 border border-white/10 rounded-full pointer-events-none"></div>
+
+                        <!-- Big Center Symbol / Value -->
+                        <div id="centerVal" class="font-num font-black text-8xl sm:text-9xl tracking-tighter drop-shadow-2xl transition-all duration-300" style="color: var(--card-color);">
+                            7
+                        </div>
+                    </div>
+                </div>
+
+                <!-- BOTTOM CORNER IDENTIFIER (ROTATED 180 DEG) -->
+                <div class="relative z-10 flex justify-between items-end rotate-180">
+                    <div class="flex flex-col items-start">
+                        <span id="cornerBottomVal" class="font-num font-black text-3xl sm:text-4xl leading-none tracking-tight transition-colors duration-300" style="color: var(--card-color);">
+                            7
+                        </span>
+                        <span class="text-[9px] font-extrabold tracking-[0.25em] text-white/40 uppercase mt-0.5">UNO</span>
+                    </div>
+                </div>
+
+                <!-- Sleek Framing Line -->
+                <div class="absolute inset-3 border border-white/5 rounded-[22px] pointer-events-none"></div>
+            </div>
+
+            <!-- ================= CARD BACK ================= -->
+            <div class="card-face-back w-full h-full bg-[#0d0f14] border border-white/10 rounded-[28px] p-6 flex flex-col justify-between items-center overflow-hidden card-glow-shadow relative">
+                
+                <div class="glass-sheen absolute inset-0 z-20 rounded-[28px]"></div>
+
+                <!-- Top Subtitle -->
+                <div class="w-full flex justify-between text-[9px] font-bold text-white/40 tracking-[0.25em] uppercase">
+                    <span>MINIMAL</span>
+                    <span>DARK UNO</span>
+                </div>
+
+                <!-- Minimalist UNO Back Center Oval -->
+                <div class="w-36 h-56 border border-white/10 rounded-full flex items-center justify-center relative bg-white/[0.02]">
+                    <div class="w-24 h-24 rounded-full border border-white/15 flex items-center justify-center bg-black/40">
+                        <span class="font-num font-black text-lg text-white/90 tracking-widest">UNO</span>
+                    </div>
+                </div>
+
+                <!-- Bottom Text -->
+                <div class="text-[9px] font-bold text-white/30 tracking-[0.3em] uppercase">
+                    GAME EDITION
+                </div>
+
+                <div class="absolute inset-3 border border-white/5 rounded-[22px] pointer-events-none"></div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- MINIMALIST GAME COLOR & CARD CONTROLLER -->
+    <div class="mt-7 flex flex-col items-center gap-3 z-30">
+        
+        <!-- Color Selector Dots (For Players to test every UNO color easily) -->
+        <div class="flex items-center gap-3 bg-black/50 border border-white/10 px-4 py-2 rounded-full backdrop-blur-md">
+            <button onclick="changeCardColor('color-red', 'RED', '#ff3355')" class="w-5 h-5 rounded-full bg-[#ff3355] hover:scale-125 transition-transform shadow-lg shadow-red-500/30 focus:outline-none" title="Red Card"></button>
+            <button onclick="changeCardColor('color-blue', 'BLUE', '#00d2ff')" class="w-5 h-5 rounded-full bg-[#00d2ff] hover:scale-125 transition-transform shadow-lg shadow-cyan-400/30 focus:outline-none" title="Blue Card"></button>
+            <button onclick="changeCardColor('color-green', 'GREEN', '#00e676')" class="w-5 h-5 rounded-full bg-[#00e676] hover:scale-125 transition-transform shadow-lg shadow-emerald-400/30 focus:outline-none" title="Green Card"></button>
+            <button onclick="changeCardColor('color-yellow', 'YELLOW', '#ffcc00')" class="w-5 h-5 rounded-full bg-[#ffcc00] hover:scale-125 transition-transform shadow-lg shadow-yellow-400/30 focus:outline-none" title="Yellow Card"></button>
+            <button onclick="changeCardColor('color-wild', 'WILD', '#e0e7ff')" class="w-5 h-5 rounded-full bg-gradient-to-tr from-red-500 via-yellow-400 to-cyan-400 hover:scale-125 transition-transform shadow-lg shadow-purple-500/30 focus:outline-none" title="Wild Card"></button>
+        </div>
+
+        <!-- Quick Value Switcher -->
+        <div class="flex items-center gap-2">
+            <button onclick="prevValue()" class="text-xs font-semibold px-3 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-white/70 hover:text-white transition-all">← Prev</button>
+            <span id="currentCardLabel" class="text-xs font-mono text-white/50 min-w-[70px] text-center">CARD 7</span>
+            <button onclick="nextValue()" class="text-xs font-semibold px-3 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-white/70 hover:text-white transition-all">Next →</button>
+        </div>
+
+        <p class="text-[11px] text-white/30 tracking-wider">কার্ডে ক্লিক করে উল্টে দেখুন</p>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        let isFlipped = false;
+        const card = document.getElementById('unoCard');
+        const sheen = document.getElementById('cardSheen');
+        const container = card.parentElement;
+
+        const values = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '🚫', '⇄', '+2', '🌈', '+4'];
+        let valIndex = 7; // Starts at 7
+
+        // Interactive 3D Physics Tilt on Mouse Movement
+        container.addEventListener('mousemove', (e) => {
+            const rect = container.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+
+            const rotateX = ((y - centerY) / centerY) * -18;
+            const rotateY = ((x - centerX) / centerX) * 18;
+
+            const flipAngle = isFlipped ? 180 : 0;
+            card.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY + flipAngle}deg)`;
+
+            // Gloss Sheen Follows Cursor
+            const sheenX = (x / rect.width) * 100;
+            const sheenY = (y / rect.height) * 100;
+            sheen.style.background = `radial-gradient(circle at ${sheenX}% ${sheenY}%, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.02) 50%, transparent 80%)`;
+        });
+
+        container.addEventListener('mouseleave', () => {
+            const flipAngle = isFlipped ? 180 : 0;
+            card.style.transform = `rotateX(0deg) rotateY(${flipAngle}deg)`;
+            sheen.style.background = '';
+        });
+
+        // Toggle Card Flip (Front <-> Back)
+        function toggleFlip() {
+            isFlipped = !isFlipped;
+            if (isFlipped) {
+                card.classList.add('flipped');
+            } else {
+                card.classList.remove('flipped');
+            }
+        }
+
+        // Change UNO Color Theme
+        function changeCardColor(colorClass, colorName, hexCode) {
+            document.body.className = `min-h-screen w-full flex flex-col items-center justify-center p-4 relative ${colorClass}`;
+            document.getElementById('colorNameTag').innerText = colorName;
+            
+            const oval = document.getElementById('centerOval');
+            if (colorClass === 'color-wild') {
+                oval.classList.add('wild-ring');
+                oval.style.borderColor = 'transparent';
+            } else {
+                oval.classList.remove('wild-ring');
+                oval.style.borderColor = 'var(--card-color)';
+            }
+        }
+
+        // Switch Card Values
+        function updateCardDisplay() {
+            const currentVal = values[valIndex];
+            document.getElementById('centerVal').innerText = currentVal;
+            document.getElementById('cornerTopVal').innerText = currentVal;
+            document.getElementById('cornerBottomVal').innerText = currentVal;
+            document.getElementById('currentCardLabel').innerText = `CARD: ${currentVal}`;
+
+            // Auto switch to Wild theme if Action Card is Wild / +4
+            if (currentVal === '🌈' || currentVal === '+4') {
+                changeCardColor('color-wild', 'WILD', '#e0e7ff');
+            }
+        }
+
+        function nextValue() {
+            valIndex = (valIndex + 1) % values.length;
+            updateCardDisplay();
+        }
+
+        function prevValue() {
+            valIndex = (valIndex - 1 + values.length) % values.length;
+            updateCardDisplay();
+        }
+    </script>
+</body>
+</html>

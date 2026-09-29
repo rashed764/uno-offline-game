@@ -40,11 +40,17 @@ const SHOP_ITEM_COSTS = Object.freeze(Object.fromEntries(
     .map(item => [item.id, item.cost])
 ));
 
+function isLocalServerConnection(socket) {
+  const address = String(socket.handshake.address || '').replace(/^::ffff:/, '').split('%')[0];
+  return address === '127.0.0.1' || address === '::1'
+    || getLocalIpAddresses().some(({ ip }) => ip === address);
+}
+
 function settleGameWager(game) {
   if (!game || game.wagerSettled || !game.winner) return;
   game.wagerSettled = true;
   const winner = game.winner;
-  if (!winner.isBot && winner.walletId) {
+  if (!winner.isBot && !winner.isAdmin && winner.walletId && game.stake > 0) {
     walletDatabase.credit(winner.walletId, game.stake * game.wagerPlayerCount);
   }
   game.players.filter(player => !player.isBot && player.walletId).forEach(player => {
@@ -196,11 +202,12 @@ function finalizeAiTurn(game) {
 io.on('connection', (socket) => {
   console.log(`[Socket Connected] ID: ${socket.id}`);
 
-  socket.on('wallet_login', ({ walletId } = {}, acknowledge = () => {}) => {
+  socket.on('wallet_login', ({ walletId, adminMode = false } = {}, acknowledge = () => {}) => {
     try {
       const wallet = walletDatabase.getOrCreate(walletId);
       socket.data.walletId = walletId;
-      acknowledge({ ok: true, coins: wallet.coins });
+      socket.data.adminMode = adminMode === true && isLocalServerConnection(socket);
+      acknowledge({ ok: true, coins: wallet.coins, adminMode: socket.data.adminMode });
     } catch (_) {
       acknowledge({ ok: false, error: 'Could not load the saved coin wallet.' });
     }
@@ -225,12 +232,12 @@ io.on('connection', (socket) => {
   // Create Room Event
   socket.on('create_room', ({ playerName, mode, stake = 50, targetPlayers = 2 } = {}) => {
     if (!socket.data.walletId) return socket.emit('error_message', 'Wallet is still loading. Please try again.');
-    const wager = Number(stake);
+    const wager = socket.data.adminMode ? 0 : Number(stake);
     const playerCount = Number(targetPlayers);
-    if (!Number.isInteger(wager) || wager < 50 || wager > 10000 || ![2, 3, 4].includes(playerCount)) {
+    if ((!socket.data.adminMode && (!Number.isInteger(wager) || wager < 50 || wager > 10000)) || ![2, 3, 4].includes(playerCount)) {
       return socket.emit('error_message', 'Choose a stake from 50 to 10,000 coins and 2 to 4 players.');
     }
-    if (walletDatabase.getBalance(socket.data.walletId) < wager) {
+    if (!socket.data.adminMode && walletDatabase.getBalance(socket.data.walletId) < wager) {
       return socket.emit('error_message', `You need at least ${wager} coins to create this match.`);
     }
     const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -238,6 +245,7 @@ io.on('connection', (socket) => {
     const game = new GameEngine(roomId, gameMode);
     game.stake = wager;
     game.targetPlayers = playerCount;
+    game.isAdminTest = Boolean(socket.data.adminMode);
 
     const safeName = (playerName && playerName.trim()) ? playerName.trim().substring(0, 15) : 'Player 1';
     const hostPlayer = {
@@ -245,6 +253,7 @@ io.on('connection', (socket) => {
       name: safeName,
       isHost: true,
       isBot: false,
+      isAdmin: Boolean(socket.data.adminMode),
       walletId: socket.data.walletId,
       hand: []
     };
@@ -303,16 +312,22 @@ io.on('connection', (socket) => {
       return socket.emit('error_message', `Lobby is full! This match is set for ${game.targetPlayers} players.`);
     }
 
-    if (walletDatabase.getBalance(socket.data.walletId) < game.stake) {
+    if (!socket.data.adminMode && walletDatabase.getBalance(socket.data.walletId) < game.stake) {
       return socket.emit('error_message', `This room needs ${game.stake} coins, but your saved balance is too low.`);
     }
 
     const safeName = (playerName && playerName.trim()) ? playerName.trim().substring(0, 15) : `Player ${game.players.length + 1}`;
+    if (socket.data.adminMode && game.stake > 0) {
+      game.stake = 0;
+      game.isAdminTest = true;
+    }
+
     const joiningPlayer = {
       id: socket.id,
       name: safeName,
       isHost: false,
       isBot: false,
+      isAdmin: Boolean(socket.data.adminMode),
       walletId: socket.data.walletId,
       hand: []
     };
@@ -342,6 +357,9 @@ io.on('connection', (socket) => {
       players: lobbyPlayers,
       roomId: formattedRoomId
     });
+    if (game.isAdminTest) {
+      io.to(formattedRoomId).emit('room_wager_updated', { stake: 0, targetPlayers: game.targetPlayers });
+    }
 
     console.log(`[Player Joined] ${joiningPlayer.name} joined Room: ${formattedRoomId}`);
   });
@@ -360,7 +378,7 @@ io.on('connection', (socket) => {
     }
 
     const requiredByWallet = new Map();
-    const wageredPlayers = game.players.filter(player => !player.isBot);
+    const wageredPlayers = game.stake > 0 ? game.players.filter(player => !player.isBot) : [];
     for (const player of wageredPlayers) {
       if (!player.walletId) return socket.emit('error_message', `${player.name}'s wallet is not connected.`);
       requiredByWallet.set(player.walletId, (requiredByWallet.get(player.walletId) || 0) + game.stake);
