@@ -2107,3 +2107,102 @@ input[type="range"] {
   80% { translate: 2px 1px; }
 }
 
+/* Reverse card: curved energy flight, impact rings, orbit particles, and player wave. */
+.discard-flight-ghost.reverse-flight-ghost {
+  filter: drop-shadow(0 0 8px #8bfaff) drop-shadow(0 0 20px #21cfff);
+  box-shadow: 0 0 22px rgba(50,231,255,.7);
+}
+.reverse-flight-trail {
+  position: absolute;
+  z-index: 9998;
+  pointer-events: none;
+  border-radius: 50%;
+  background: linear-gradient(90deg, transparent, rgba(73,244,255,.3), rgba(222,255,255,.95), rgba(42,199,255,.45), transparent);
+  box-shadow: 0 0 14px #50f1ff, 0 0 30px rgba(31,174,255,.8);
+  filter: blur(4px);
+  transform-origin: center;
+}
+.reverse-impact-ring {
+  position: fixed;
+  z-index: 10000;
+  width: 26px;
+  height: 26px;
+  border: 2px solid rgba(145,255,255,.95);
+  border-radius: 50%;
+  pointer-events: none;
+  transform: translate(-50%,-50%) scale(.25) rotateX(60deg);
+  box-shadow: 0 0 14px #4eeeff, inset 0 0 12px rgba(77,238,255,.8);
+  animation: reverse-ring-burst 980ms cubic-bezier(.12,.62,.26,1) var(--ring-delay) forwards;
+}
+@keyframes reverse-ring-burst {
+  0% { opacity: 0; transform: translate(-50%,-50%) scale(.25) rotateX(60deg); }
+  12% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%,-50%) scale(10) rotateX(60deg); }
+}
+.reverse-impact-spark {
+  position: fixed;
+  z-index: 10002;
+  width: 7px;
+  height: 18px;
+  border-radius: 100%;
+  background: linear-gradient(#fff, #85f8ff 48%, transparent);
+  box-shadow: 0 0 9px #56edff, 0 0 18px #26bfff;
+  transform: translate(-50%,-50%) rotate(var(--spark-angle)) translateY(0) scale(.2);
+  animation: reverse-spark-burst 680ms cubic-bezier(.15,.72,.25,1) var(--spark-delay) forwards;
+}
+@keyframes reverse-spark-burst {
+  12% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%,-50%) rotate(var(--spark-angle)) translateY(var(--spark-distance)) scale(.05); }
+}
+.reverse-hologram-emblem {
+  position: fixed;
+  z-index: 10001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 14px;
+  color: #e3ffff;
+  font: 900 15px/1 system-ui,sans-serif;
+  letter-spacing: .18em;
+  text-shadow: 0 0 7px #fff, 0 0 18px #27dfff;
+  background: linear-gradient(135deg,rgba(9,62,105,.88),rgba(16,184,205,.72));
+  border: 1px solid rgba(189,255,255,.95);
+  border-radius: 9px;
+  box-shadow: 0 0 14px #32e9ff, inset 0 0 18px rgba(158,255,255,.55);
+  pointer-events: none;
+  transform: translate(-50%,-50%) perspective(550px) rotateY(0deg) rotateX(0deg) scale(.1);
+  animation: reverse-emblem-spin 1.35s cubic-bezier(.2,1.2,.32,1) forwards;
+}
+.reverse-emblem-glyph { font-size: 34px; line-height: .9; }
+@keyframes reverse-emblem-spin {
+  0% { opacity: 0; transform: translate(-50%,-50%) perspective(550px) rotateY(-180deg) rotateX(55deg) scale(.1); }
+  35% { opacity: 1; transform: translate(-50%,-50%) perspective(550px) rotateY(360deg) rotateX(0) scale(1.16); }
+  55%,82% { opacity: 1; transform: translate(-50%,-50%) perspective(550px) rotateY(540deg) rotateX(0) scale(1); }
+  100% { opacity: 0; transform: translate(-50%,-50%) perspective(550px) rotateY(720deg) rotateX(0) scale(.82); }
+}
+.orbit-flow-particle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 7px;
+  height: 7px;
+  margin: -3.5px;
+  border-radius: 50%;
+  background: #d7ffff;
+  box-shadow: 0 0 7px #fff, 0 0 14px currentColor;
+  transform: rotate(var(--orbit-angle)) translateX(132px);
+}
+.direction-ring-3d.clockwise .orbit-flow-particle { color: #45ffab; }
+.direction-ring-3d.counter-clockwise .orbit-flow-particle { color: #ff5470; }
+.opponent-seat.reverse-player-wave,
+.current-player-seat.reverse-player-wave {
+  animation: reverse-player-wave 720ms cubic-bezier(.2,.9,.3,1);
+  filter: brightness(1.3) drop-shadow(0 0 12px #56efff);
+}
+@keyframes reverse-player-wave {
+  0%,100% { scale: 1; translate: 0 0; }
+  42% { scale: 1.1; translate: 0 -7px; }
+  68% { scale: .98; translate: 0 1px; }
+}
+

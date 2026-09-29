@@ -292,6 +292,7 @@
     appState.pendingAction = null;
     const gameState = (payload && payload.gameState) ? payload.gameState : payload;
     const previousState = appState.latestServerState;
+    captureReverseTransition(previousState, gameState);
     const remoteDiscardSource = captureRemoteDiscardSource(previousState, gameState);
     const remoteDrawEvent = captureRemoteDrawEvent(previousState, gameState);
     appState.latestServerState = gameState;
@@ -316,6 +317,7 @@
     appState.pendingAction = null;
     const gameState = (payload && payload.gameState) ? payload.gameState : payload;
     const previousState = appState.latestServerState;
+    captureReverseTransition(previousState, gameState);
     const remoteDiscardSource = captureRemoteDiscardSource(previousState, gameState);
     const remoteDrawEvent = captureRemoteDrawEvent(previousState, gameState);
     appState.latestServerState = gameState;
@@ -834,7 +836,10 @@
     // 1. Update Direction Flow Ring
     const directionRing = document.getElementById('direction-ring-3d');
     if (directionRing) {
-      directionRing.className = `direction-ring-3d ${state.direction === -1 ? 'counter-clockwise' : 'clockwise'}`;
+      const reverseTransition = window.pendingReverseTransition;
+      if (!reverseTransition || Number(reverseTransition.to) !== Number(state.direction)) {
+        directionRing.className = `direction-ring-3d ${state.direction === -1 ? 'counter-clockwise' : 'clockwise'}`;
+      }
     }
 
     // 2. Active player identification & turn indicators
@@ -1174,6 +1179,214 @@
     }
   }
 
+  function captureReverseTransition(previousState, nextState) {
+    const played = nextState?.lastPlayedCard;
+    if (!previousState?.topCard || !nextState?.topCard || !played
+      || String(nextState.topCard.value).toLowerCase() !== 'reverse'
+      || String(previousState.topCard.id) === String(nextState.topCard.id)
+      || String(played.cardId) !== String(nextState.topCard.id)
+      || Number(previousState.direction) === Number(nextState.direction)) return;
+    window.pendingReverseTransition = {
+      from: previousState.direction,
+      to: nextState.direction,
+      signature: `${played.playerId}:${played.cardId}`
+    };
+  }
+
+  function animateReverseFlight(ghost, overlay, flight) {
+    const duration = 650;
+    const trail = document.createElement('div');
+    trail.className = 'reverse-flight-trail';
+    Object.assign(trail.style, {
+      left: `${flight.startX + flight.width * .15}px`,
+      top: `${flight.startY + flight.height * .68}px`,
+      width: `${flight.width * .7}px`,
+      height: `${Math.max(8, flight.height * .13)}px`
+    });
+    overlay.appendChild(trail);
+    ghost.style.transition = 'none';
+    const midTransform = `translate3d(${flight.dx * .5}px,${flight.dy * .5 - flight.height * .8}px,0) scale(1) rotate(0deg)`;
+    const endTransform = flight.endTransform;
+    const cardAnimation = ghost.animate([
+      { transform: flight.startTransform, offset: 0, easing: 'cubic-bezier(.2,.7,.3,1)' },
+      { transform: midTransform, offset: .56, easing: 'cubic-bezier(.2,.7,.3,1)' },
+      { transform: endTransform, offset: 1 }
+    ], { duration, fill: 'forwards' });
+    trail.animate([
+      { transform: 'translate3d(0,0,0) scale(.45)', opacity: .9, offset: 0 },
+      { transform: `translate3d(${flight.dx * .5}px,${flight.dy * .5 - flight.height * .8}px,0) scale(1.2)`, opacity: .72, offset: .56 },
+      { transform: `translate3d(${flight.dx}px,${flight.dy}px,0) scale(.25)`, opacity: 0, offset: 1 }
+    ], { duration, fill: 'forwards', easing: 'ease-out' });
+    return { animation: cardAnimation, trail };
+  }
+
+  function playReverseImpact(state) {
+    if (!state) return;
+    const played = state.lastPlayedCard;
+    const signature = `${played?.playerId || ''}:${played?.cardId || state.topCard?.id || ''}`;
+    if (signature === window.lastReverseImpactSignature) return;
+    window.lastReverseImpactSignature = signature;
+
+    const overlay = document.getElementById('ghost-animation-overlay');
+    const pile = document.getElementById('discard-pile-3d');
+    if (overlay && pile) {
+      const rect = pile.getBoundingClientRect();
+      const x = rect.left + rect.width / 2;
+      const y = rect.top + rect.height / 2;
+      for (let i = 0; i < 3; i++) {
+        const ring = document.createElement('div');
+        ring.className = 'reverse-impact-ring';
+        ring.style.left = `${x}px`;
+        ring.style.top = `${y}px`;
+        ring.style.setProperty('--ring-delay', `${i * 110}ms`);
+        overlay.appendChild(ring);
+        setTimeout(() => ring.remove(), 1250);
+      }
+
+      const emblem = document.createElement('div');
+      emblem.className = 'reverse-hologram-emblem';
+      emblem.innerHTML = '<span class="reverse-emblem-glyph">⟳</span><strong>REVERSE</strong>';
+      emblem.style.left = `${x}px`;
+      emblem.style.top = `${y}px`;
+      overlay.appendChild(emblem);
+      setTimeout(() => emblem.remove(), 1450);
+
+      for (let i = 0; i < 18; i++) {
+        const spark = document.createElement('i');
+        spark.className = 'reverse-impact-spark';
+        spark.style.left = `${x}px`;
+        spark.style.top = `${y}px`;
+        spark.style.setProperty('--spark-angle', `${i * 20 + (Math.random() * 8 - 4)}deg`);
+        spark.style.setProperty('--spark-distance', `${45 + Math.random() * 125}px`);
+        spark.style.setProperty('--spark-delay', `${Math.random() * 90}ms`);
+        overlay.appendChild(spark);
+        setTimeout(() => spark.remove(), 850);
+      }
+    }
+
+    const transition = window.pendingReverseTransition;
+    animateReverseOrbit(state.direction, transition);
+    animateReversePlayerWave(state, played?.playerId);
+    playReverseSynthSound();
+  }
+
+  function animateReverseOrbit(direction, transition) {
+    const ring = document.getElementById('direction-ring-3d');
+    if (!ring) return;
+    if (!ring.querySelector('.orbit-flow-particle')) {
+      for (let i = 0; i < 8; i++) {
+        const particle = document.createElement('i');
+        particle.className = 'orbit-flow-particle';
+        particle.style.setProperty('--orbit-angle', `${i * 45}deg`);
+        ring.appendChild(particle);
+      }
+    }
+    const nextClass = Number(direction) === -1 ? 'counter-clockwise' : 'clockwise';
+    if (!transition) {
+      ring.className = `direction-ring-3d ${nextClass}`;
+      return;
+    }
+
+    const transform = getComputedStyle(ring).transform;
+    let currentAngle = 0;
+    try {
+      if (window.DOMMatrixReadOnly) {
+        const matrix = new window.DOMMatrixReadOnly(transform === 'none' ? undefined : transform);
+        currentAngle = Math.atan2(matrix.b, matrix.a) * 180 / Math.PI;
+      } else {
+        const values = transform.match(/matrix\(([^)]+)\)/)?.[1].split(',').map(Number);
+        if (values?.length >= 2) currentAngle = Math.atan2(values[1], values[0]) * 180 / Math.PI;
+      }
+    } catch (_) {}
+    ring.getAnimations().forEach(animation => animation.cancel());
+    ring.style.animation = 'none';
+    ring.style.transition = 'none';
+    ring.style.transform = `translate(-50%,-50%) rotate(${currentAngle}deg)`;
+    const targetAngle = currentAngle + 180;
+    const rotate = ring.animate([
+      { transform: `translate(-50%,-50%) rotate(${currentAngle}deg)` },
+      { transform: `translate(-50%,-50%) rotate(${targetAngle}deg)` }
+    ], { duration: 820, easing: 'cubic-bezier(.2,.75,.25,1)', fill: 'forwards' });
+    rotate.finished.then(() => {
+      rotate.cancel();
+      const phase = ((targetAngle % 360) + 360) % 360;
+      const phaseFraction = nextClass === 'clockwise' ? phase / 360 : ((360 - phase) % 360) / 360;
+      ring.className = `direction-ring-3d ${nextClass}`;
+      ring.style.animation = '';
+      ring.style.animationDelay = `${-phaseFraction * 10}s`;
+      ring.style.transform = '';
+      ring.style.transition = '';
+      window.pendingReverseTransition = null;
+    }).catch(() => {});
+  }
+
+  function animateReversePlayerWave(state, actorId) {
+    const players = state.players || [];
+    if (!players.length) return;
+    const actorIndex = players.findIndex(player => String(player.id) === String(actorId));
+    const direction = Number(state.direction) === -1 ? -1 : 1;
+    players.forEach((_, step) => {
+      const order = step + 1;
+      const index = actorIndex < 0
+        ? (step % players.length)
+        : (actorIndex + direction * order + players.length * 2) % players.length;
+      const player = players[index];
+      const isMe = String(player.id) === String(appState.myPlayerId || socket.id);
+      const seatName = isMe ? null : getOpponentPositionName(player.id, players, appState.myPlayerId || socket.id);
+      const node = isMe
+        ? document.querySelector('.current-player-seat')
+        : (seatName ? document.querySelector(`.seat-${seatName}`) : null);
+      if (!node) return;
+      setTimeout(() => {
+        node.classList.remove('reverse-player-wave');
+        void node.offsetWidth;
+        node.classList.add('reverse-player-wave');
+        setTimeout(() => node.classList.remove('reverse-player-wave'), 780);
+      }, order * 150);
+    });
+  }
+
+  function playReverseSynthSound() {
+    if (document.getElementById('sound-status')?.textContent?.trim() === 'OFF') return;
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    try {
+      const context = new AudioContextClass();
+      const now = context.currentTime;
+      const master = context.createGain();
+      master.gain.setValueAtTime(.0001, now);
+      master.gain.exponentialRampToValueAtTime(.16, now + .035);
+      master.gain.exponentialRampToValueAtTime(.0001, now + 1.15);
+      master.connect(context.destination);
+
+      const warp = context.createOscillator();
+      const warpGain = context.createGain();
+      warp.type = 'sawtooth';
+      warp.frequency.setValueAtTime(620, now);
+      warp.frequency.exponentialRampToValueAtTime(72, now + .72);
+      warpGain.gain.setValueAtTime(.42, now);
+      warpGain.gain.exponentialRampToValueAtTime(.001, now + .76);
+      warp.connect(warpGain).connect(master);
+      warp.start(now);
+      warp.stop(now + .78);
+
+      const bass = context.createOscillator();
+      const bassGain = context.createGain();
+      bass.type = 'sine';
+      bass.frequency.setValueAtTime(92, now + .2);
+      bass.frequency.exponentialRampToValueAtTime(38, now + 1.05);
+      bassGain.gain.setValueAtTime(.001, now);
+      bassGain.gain.setValueAtTime(.7, now + .2);
+      bassGain.gain.exponentialRampToValueAtTime(.001, now + 1.1);
+      bass.connect(bassGain).connect(master);
+      bass.start(now);
+      bass.stop(now + 1.12);
+      setTimeout(() => context.close().catch(() => {}), 1400);
+    } catch (_) {
+      // Audio may be unavailable until a browser gesture unlocks it.
+    }
+  }
+
   function startDiscardFlight(card, cardEl) {
     const discardPile = document.getElementById('discard-pile-3d');
     const hand = document.getElementById('player-cards-fan');
@@ -1202,7 +1415,9 @@
     const ghost = create3DCardElement(card, 0, 0, false);
     ghost.classList.add('discard-flight-ghost');
     const isSkip = String(card.value).toLowerCase() === 'skip';
+    const isReverse = String(card.value).toLowerCase() === 'reverse';
     if (isSkip) ghost.classList.add('power-card-glow');
+    if (isReverse) ghost.classList.add('reverse-flight-ghost');
     ghost.classList.remove('selected', 'just-drawn');
     Object.assign(ghost.style, {
       position: 'absolute', left: `${startX}px`, top: `${startY}px`,
@@ -1219,16 +1434,26 @@
     const pending = { card, el: ghost, state: null, landed: false, hand, rotation: randomAngle,
       skipTargetId: isSkip ? getSkippedPlayerId(beforeState) : null };
     window.pendingDiscardFlight = pending;
-    requestAnimationFrame(() => {
-      ghost.style.transform = `translate3d(${endCenterX - sourceCenterX}px,${endCenterY - sourceCenterY}px,0) scale(1) rotate(${randomAngle}deg)`;
-    });
     const land = () => {
       if (window.pendingDiscardFlight !== pending || pending.landed) return;
       pending.landed = true;
       if (pending.state) finishDiscardFlight(pending);
     };
+    if (isReverse) {
+      pending.flight = animateReverseFlight(ghost, overlay, {
+        startX, startY, width: targetWidth, height: targetHeight,
+        dx: endCenterX - sourceCenterX, dy: endCenterY - sourceCenterY,
+        startTransform: ghost.style.transform,
+        endTransform: `translate3d(${endCenterX - sourceCenterX}px,${endCenterY - sourceCenterY}px,0) scale(1) rotate(${randomAngle}deg)`
+      });
+      pending.flight.animation.finished.then(land).catch(() => {});
+    } else {
+      requestAnimationFrame(() => {
+        ghost.style.transform = `translate3d(${endCenterX - sourceCenterX}px,${endCenterY - sourceCenterY}px,0) scale(1) rotate(${randomAngle}deg)`;
+      });
+    }
     ghost.addEventListener('transitionend', land, { once: true });
-    setTimeout(land, 500);
+    setTimeout(land, isReverse ? 720 : 500);
     setTimeout(() => {
       if (window.pendingDiscardFlight === pending) cancelDiscardFlight();
     }, 5000);
@@ -1258,9 +1483,12 @@
   function finishDiscardFlight(pending) {
     if (!pending || window.pendingDiscardFlight !== pending || !pending.state) return;
     pending.el.remove();
+    pending.flight?.animation.cancel();
+    pending.flight?.trail.remove();
     window.pendingDiscardFlight = null;
     renderGame(pending.state, pending.rotation);
     if (pending.skipTargetId != null) playSkipImpact(pending.skipTargetId, pending.state);
+    if (String(pending.card.value).toLowerCase() === 'reverse') playReverseImpact(pending.state);
   }
 
   function getSkippedPlayerId(state) {
@@ -1414,6 +1642,7 @@
     const played = nextState.lastPlayedCard;
     const actorId = played?.playerId || previousState.currentTurnPlayerId;
     const isSkip = String(nextState.topCard.value).toLowerCase() === 'skip';
+    const isReverse = String(nextState.topCard.value).toLowerCase() === 'reverse';
     const targetId = isSkip ? getSkippedPlayerId(previousState) : null;
     const signature = `${actorId}:${nextState.topCard.id}`;
     if ((isSkip && targetId == null) || signature === window.lastRemoteDiscardAnimationKey) return;
@@ -1424,6 +1653,7 @@
     const pile = document.getElementById('discard-pile-3d');
     if (!sourceEl || !pile) {
       if (isSkip) playSkipImpact(targetId, nextState);
+      if (isReverse) playReverseImpact(nextState);
       return;
     }
 
@@ -1448,6 +1678,7 @@
     const ghost = create3DCardElement(nextState.topCard, 0, 0, false);
     ghost.classList.add('discard-flight-ghost');
     if (isSkip) ghost.classList.add('power-card-glow');
+    if (isReverse) ghost.classList.add('reverse-flight-ghost');
     Object.assign(ghost.style, {
       position: 'absolute', left: `${startCenterX - width / 2}px`, top: `${startCenterY - height / 2}px`,
       width: `${width}px`, height: `${height}px`, zIndex: '10000',
@@ -1456,26 +1687,39 @@
     overlay.appendChild(ghost);
     if (pileCard) pileCard.style.visibility = 'hidden';
     ghost.getBoundingClientRect();
-    requestAnimationFrame(() => {
-      ghost.style.transform = `translate3d(${endCenterX - startCenterX}px,${endCenterY - startCenterY}px,0) scale(1) rotate(0deg)`;
-    });
-
     let landed = false;
+    let reverseFlight = null;
     const land = () => {
       if (landed) return;
       landed = true;
       ghost.remove();
+      reverseFlight?.trail.remove();
       if (pileCard?.isConnected) pileCard.style.visibility = '';
       if (isSkip) playSkipImpact(targetId, nextState);
+      if (isReverse) playReverseImpact(nextState);
     };
-    ghost.addEventListener('transitionend', land, { once: true });
-    setTimeout(land, 520);
+    const endTransform = `translate3d(${endCenterX - startCenterX}px,${endCenterY - startCenterY}px,0) scale(1) rotate(0deg)`;
+    if (isReverse) {
+      reverseFlight = animateReverseFlight(ghost, overlay, {
+        startX: startCenterX - width / 2, startY: startCenterY - height / 2,
+        width, height, dx: endCenterX - startCenterX, dy: endCenterY - startCenterY,
+        startTransform: ghost.style.transform, endTransform
+      });
+      reverseFlight.animation.finished.then(land).catch(() => {});
+      setTimeout(land, 720);
+    } else {
+      requestAnimationFrame(() => { ghost.style.transform = endTransform; });
+      ghost.addEventListener('transitionend', land, { once: true });
+      setTimeout(land, 520);
+    }
   }
 
   function cancelDiscardFlight() {
     const pending = window.pendingDiscardFlight;
     if (!pending) return;
     pending.el.remove();
+    pending.flight?.animation.cancel();
+    pending.flight?.trail.remove();
     window.pendingDiscardFlight = null;
     if (pending.hand) pending.hand.dataset.handSignature = '';
     if (appState.latestServerState) renderGame(appState.latestServerState);
