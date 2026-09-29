@@ -331,24 +331,58 @@
     }
   }
 
+  function relayoutPlayerHand(handContainer) {
+    if (!handContainer) handContainer = document.getElementById('player-cards-fan');
+    if (!handContainer) return;
+    const cardEls = Array.from(handContainer.querySelectorAll('.card-3d:not(.draw-flight-card)'));
+    const totalCards = cardEls.length;
+    if (totalCards === 0) return;
+
+    const availableWidth = handContainer.clientWidth || 380;
+    const cardWidth = cardEls[0]?.getBoundingClientRect().width || 64;
+    const maxUsableWidth = Math.max(0, availableWidth - cardWidth - 12);
+    const naturalSpread = totalCards > 1 ? (totalCards - 1) * Math.min(46, Math.max(18, availableWidth / (totalCards + 1))) : 0;
+    const spreadWidth = Math.min(maxUsableWidth, naturalSpread);
+    const maxSpreadAngle = Math.min(36, totalCards * 4.5);
+
+    cardEls.forEach((cardEl, idx) => {
+      const angle = totalCards > 1 ? - (maxSpreadAngle / 2) + idx * (maxSpreadAngle / (totalCards - 1)) : 0;
+      const targetX = totalCards > 1 ? - (spreadWidth / 2) + idx * (spreadWidth / (totalCards - 1)) : 0;
+      const targetY = Math.abs(angle) * 0.7;
+
+      cardEl.style.setProperty('--x', targetX);
+      cardEl.style.setProperty('--y', targetY);
+      cardEl.style.setProperty('--angle', angle);
+      cardEl.style.setProperty('--index', idx);
+      cardEl.style.setProperty('--i', idx);
+      cardEl.style.position = 'absolute';
+      cardEl.style.transformOrigin = 'bottom center';
+      if (!cardEl.classList.contains('selected')) {
+        cardEl.style.transform = `translateX(${targetX}px) translateY(${targetY}px) rotateZ(${angle}deg) scale(1)`;
+      }
+    });
+  }
+
   function updateGameScaling() {
     const scaler = document.getElementById('screen-scaler');
     if (!scaler) return;
 
-    const compactTouchScreen = window.matchMedia('(pointer: coarse)').matches
-      && Math.min(window.innerWidth, window.innerHeight) <= 768;
-    if (window.innerWidth <= 768 || compactTouchScreen) {
+    const isTouch = window.matchMedia('(pointer: coarse)').matches;
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight;
+
+    // Mobile / small viewport / touch screen
+    if (windowWidth <= 1024 || windowHeight <= 600 || isTouch) {
       scaler.style.transform = 'translate(-50%, -50%) scale(1)';
       scaler.style.width = '100%';
       scaler.style.height = '100%';
+      relayoutPlayerHand();
       return;
     }
 
+    // Desktop PC scaling for 1200x800 design
     const designWidth = 1200;
     const designHeight = 800;
-
-    const windowWidth = window.innerWidth;
-    const windowHeight = window.innerHeight;
 
     const scaleX = windowWidth / designWidth;
     const scaleY = windowHeight / designHeight;
@@ -357,6 +391,7 @@
     scaler.style.transform = `translate(-50%, -50%) scale(${scale})`;
     scaler.style.width = '1200px';
     scaler.style.height = '800px';
+    relayoutPlayerHand();
   }
 
   window.addEventListener('resize', updateGameScaling);
@@ -367,12 +402,12 @@
     setTimeout(updateGameScaling, 250);
   });
 
-  // Browsers require a user gesture before entering true fullscreen. Start it
-  // silently on the first tap; portrait phones already get an auto-rotated UI.
+  // Browsers require a user gesture before entering true fullscreen
   window.addEventListener('pointerdown', () => {
-    const compactTouchScreen = window.matchMedia('(pointer: coarse)').matches
-      && Math.min(window.innerWidth, window.innerHeight) <= 768;
-    if (compactTouchScreen) requestFullscreenApp();
+    const isTouch = window.matchMedia('(pointer: coarse)').matches;
+    if (isTouch && Math.min(window.innerWidth, window.innerHeight) <= 768) {
+      requestFullscreenApp();
+    }
   }, { capture: true });
   updateGameScaling();
 
@@ -1022,26 +1057,8 @@
               const handContainer = document.getElementById('player-cards-fan');
               if (handContainer) {
                 const cardEls = Array.from(handContainer.querySelectorAll('.card-3d'));
-                const totalCards = cardEls.length;
-                const maxSpreadAngle = 40;
-                const availableWidth = handContainer.clientWidth || 380;
-                const cardWidth = cardEls[0] ? cardEls[0].getBoundingClientRect().width : 64;
-                const spreadWidth = totalCards > 1
-                  ? Math.min(380, totalCards * 40, Math.max(0, availableWidth - cardWidth - 16))
-                  : 0;
-
-                cardEls.forEach((cardEl, idx) => {
-                  const angle = totalCards > 1 ? - (maxSpreadAngle / 2) + (idx * (maxSpreadAngle / (totalCards - 1))) : 0;
-                  const targetX = totalCards > 1 ? - (spreadWidth / 2) + (idx * (spreadWidth / (totalCards - 1))) : 0;
-                  const targetY = Math.abs(angle) * 0.8;
-
-                  cardEl.style.setProperty('--x', targetX);
-                  cardEl.style.setProperty('--y', targetY);
-                  cardEl.style.setProperty('--angle', angle);
-                  cardEl.style.setProperty('--i', idx);
-                  cardEl.classList.add('fanning-transition');
-                  cardEl.style.transform = `translateX(${targetX}px) translateY(${targetY}px) rotateZ(${angle}deg) scale(1)`;
-                });
+                cardEls.forEach(cardEl => cardEl.classList.add('fanning-transition'));
+                relayoutPlayerHand(handContainer);
               }
 
               // 2. Fan out opponent cards
@@ -1298,24 +1315,7 @@
         });
         if (window.drawRevealCardId != null) window.drawRevealCardId = null;
 
-        const availableWidth = handContainer.clientWidth || 380;
-        const cardWidth = renderedCards[0]?.getBoundingClientRect().width || 64;
-        const spreadWidth = totalCards > 1
-          ? Math.min(380, totalCards * 40, Math.max(0, availableWidth - cardWidth - 16))
-          : 0;
-        renderedCards.forEach((cardEl, idx) => {
-          const angle = totalCards > 1 ? -20 + idx * (40 / (totalCards - 1)) : 0;
-          const targetX = totalCards > 1 ? -spreadWidth / 2 + idx * (spreadWidth / (totalCards - 1)) : 0;
-          const targetY = Math.abs(angle) * 0.8;
-          cardEl.style.setProperty('--x', targetX);
-          cardEl.style.setProperty('--y', targetY);
-          cardEl.style.setProperty('--angle', angle);
-          cardEl.style.setProperty('--index', idx);
-          cardEl.style.setProperty('--i', idx);
-          cardEl.style.position = 'absolute';
-          cardEl.style.transformOrigin = 'bottom center';
-          cardEl.style.transform = `translateX(${targetX}px) translateY(${targetY}px) rotateZ(${angle}deg) scale(1)`;
-        });
+        relayoutPlayerHand(handContainer);
         requestAnimationFrame(() => handContainer.classList.remove('draw-layout-sync'));
       }
     }
@@ -3311,6 +3311,7 @@
 
       applyLayoutPreferences(prefs);
       saveLayoutPreferences(prefs);
+      relayoutPlayerHand();
     };
 
     if (sBoard) sBoard.addEventListener('input', handleSliderChange);
@@ -3323,6 +3324,7 @@
         applyLayoutPreferences(DEFAULT_LAYOUT);
         syncLayoutSliders(DEFAULT_LAYOUT);
         saveLayoutPreferences(DEFAULT_LAYOUT);
+        relayoutPlayerHand();
         showToast('🔄 Layout reset to default');
       });
     }
