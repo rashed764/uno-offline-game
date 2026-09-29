@@ -35,13 +35,18 @@
   // FULLSCREEN & RESPONSIVE CANVAS SCALING
   // ==========================================================================
 
+  let fullscreenRequestInFlight = false;
   function requestFullscreenApp() {
     const elem = document.documentElement;
-    if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.mozFullScreenElement && !document.msFullscreenElement) {
+    const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement
+      || document.mozFullScreenElement || document.msFullscreenElement;
+    if (!isFullscreen && !fullscreenRequestInFlight) {
       if (elem.requestFullscreen) {
-        elem.requestFullscreen().catch(err => {
-          console.log('[Fullscreen] Request ignored or blocked by browser:', err);
-        });
+        fullscreenRequestInFlight = true;
+        elem.requestFullscreen({ navigationUI: 'hide' })
+          .then(() => window.screen?.orientation?.lock?.('landscape'))
+          .catch(() => {})
+          .finally(() => { fullscreenRequestInFlight = false; });
       } else if (elem.webkitRequestFullscreen) {
         elem.webkitRequestFullscreen();
       } else if (elem.mozRequestFullScreen) {
@@ -56,7 +61,9 @@
     const scaler = document.getElementById('screen-scaler');
     if (!scaler) return;
 
-    if (window.innerWidth <= 768) {
+    const compactTouchScreen = window.matchMedia('(pointer: coarse)').matches
+      && Math.min(window.innerWidth, window.innerHeight) <= 768;
+    if (window.innerWidth <= 768 || compactTouchScreen) {
       scaler.style.transform = 'translate(-50%, -50%) scale(1)';
       scaler.style.width = '100%';
       scaler.style.height = '100%';
@@ -79,9 +86,21 @@
   }
 
   window.addEventListener('resize', updateGameScaling);
+  window.visualViewport?.addEventListener('resize', updateGameScaling);
+  window.addEventListener('fullscreenchange', updateGameScaling);
+  window.addEventListener('webkitfullscreenchange', updateGameScaling);
   window.addEventListener('orientationchange', () => {
     setTimeout(updateGameScaling, 250);
   });
+
+  // Browsers require a user gesture before entering true fullscreen. Start it
+  // silently on the first tap; portrait phones already get an auto-rotated UI.
+  window.addEventListener('pointerdown', () => {
+    const compactTouchScreen = window.matchMedia('(pointer: coarse)').matches
+      && Math.min(window.innerWidth, window.innerHeight) <= 768;
+    if (compactTouchScreen) requestFullscreenApp();
+  }, { capture: true });
+  updateGameScaling();
 
   // ==========================================================================
   // HELPER FUNCTIONS (Screen Switcher, Toasts, Modals)
@@ -2271,7 +2290,42 @@
   // DOM EVENT BINDINGS
   // ==========================================================================
 
+  function setupStartupScreen() {
+    const startupScreen = document.getElementById('startup-screen');
+    const startButton = document.getElementById('startup-start');
+    const status = document.getElementById('startup-status');
+    if (!startupScreen || !startButton) return;
+
+    const loadingStartedAt = performance.now();
+    const pageReady = document.readyState === 'complete'
+      ? Promise.resolve()
+      : new Promise(resolve => window.addEventListener('load', resolve, { once: true }));
+    const fontsReady = document.fonts?.ready || Promise.resolve();
+    Promise.all([pageReady, fontsReady]).then(() => {
+      const minimumLoadingTime = 650;
+      const delay = Math.max(0, minimumLoadingTime - (performance.now() - loadingStartedAt));
+      setTimeout(() => {
+        if (status) status.textContent = 'Ready to play';
+        startupScreen.classList.add('is-ready');
+        startButton.disabled = false;
+      }, delay);
+    }).catch(() => {
+      if (status) status.textContent = 'Ready to play';
+      startupScreen.classList.add('is-ready');
+      startButton.disabled = false;
+    });
+
+    startButton.addEventListener('click', () => {
+      if (startButton.disabled) return;
+      requestFullscreenApp();
+      showScreen('menu-screen');
+      startupScreen.classList.add('leaving');
+      setTimeout(() => startupScreen.classList.add('hidden'), 380);
+    });
+  }
+
   function bindDomEvents() {
+    setupStartupScreen();
     const nameInput = document.getElementById('player-name');
     const btnVsAi = document.getElementById('btn-vs-ai');
     const btnCreateRoom = document.getElementById('btn-create-room');

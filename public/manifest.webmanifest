@@ -1,0 +1,18 @@
+{
+  "name": "UNO! 3D Classic",
+  "short_name": "UNO 3D",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#071b18",
+  "theme_color": "#071b18",
+  "icons": [
+    {
+      "src": "uno-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
