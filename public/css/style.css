@@ -2333,3 +2333,184 @@ input[type="range"] {
   58% { scale: .98; }
 }
 
+/* Wild selector: a transparent overlay anchors the four choices to the discard hub. */
+.wild-color-overlay {
+  z-index: 7000;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  pointer-events: none;
+}
+.color-picker-box {
+  position: fixed;
+  width: 0;
+  height: 0;
+  max-width: none;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  pointer-events: none;
+}
+.color-picker-box h3,
+.color-picker-box p {
+  position: absolute;
+  left: 0;
+  width: max-content;
+  max-width: 90vw;
+  transform: translate(-50%,-50%);
+  padding: 7px 12px;
+  border: 1px solid rgba(255,255,255,.22);
+  border-radius: 18px;
+  background: rgba(7,13,28,.88);
+  box-shadow: 0 0 18px rgba(72,220,255,.25);
+  white-space: nowrap;
+}
+.color-picker-box h3 { top: -158px; margin: 0; font-size: 16px; }
+.color-picker-box p { top: -128px; margin: 0; font-size: 11px; }
+.color-options-grid {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: block;
+  width: 236px;
+  height: 236px;
+  border: 2px solid rgba(255,255,255,.78);
+  border-radius: 50%;
+  overflow: hidden;
+  transform: translate(-50%,-50%) scale(.12) rotate(-90deg);
+  transform-origin: center;
+  box-shadow: 0 0 15px #fff, 0 0 38px rgba(79,206,255,.8), inset 0 0 20px rgba(255,255,255,.55);
+  pointer-events: auto;
+}
+.wild-color-overlay:not(.hidden) .color-options-grid {
+  animation: color-wheel-expand 420ms cubic-bezier(.16,1.18,.3,1) forwards;
+}
+@keyframes color-wheel-expand {
+  0% { transform: translate(-50%,-50%) scale(.12) rotate(-90deg); opacity: .1; }
+  70% { transform: translate(-50%,-50%) scale(1.08) rotate(8deg); opacity: 1; }
+  100% { transform: translate(-50%,-50%) scale(1) rotate(0); opacity: 1; }
+}
+.color-options-grid .color-opt {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 50%;
+  height: 50%;
+  border: 1px solid rgba(255,255,255,.72);
+  border-radius: 0;
+  font-size: 13px;
+  text-shadow: 0 1px 4px rgba(0,0,0,.75), 0 0 10px currentColor;
+  transition: filter .18s ease, transform .18s ease;
+  cursor: pointer;
+}
+.color-options-grid .color-opt i { font-size: 16px; }
+.color-options-grid .color-opt:hover,
+.color-options-grid .color-opt:focus-visible { z-index: 2; filter: brightness(1.35); transform: scale(1.08); outline: 2px solid white; }
+.color-options-grid .opt-red { left: 0; top: 0; border-radius: 100% 0 0 0; }
+.color-options-grid .opt-blue { right: 0; top: 0; border-radius: 0 100% 0 0; }
+.color-options-grid .opt-green { left: 0; bottom: 0; border-radius: 0 0 0 100%; }
+.color-options-grid .opt-yellow { right: 0; bottom: 0; border-radius: 0 0 100% 0; }
+.color-wheel-center {
+  position: absolute;
+  z-index: 3;
+  left: 0;
+  top: 0;
+  display: grid;
+  place-items: center;
+  width: 62px;
+  height: 62px;
+  border: 2px solid rgba(255,255,255,.9);
+  border-radius: 50%;
+  color: white;
+  background: radial-gradient(circle,#1a2544,#090d19 72%);
+  box-shadow: 0 0 12px #fff, 0 0 25px rgba(66,216,255,.9), inset 0 0 12px rgba(128,239,255,.5);
+  transform: translate(-50%,-50%);
+  pointer-events: none;
+}
+.color-wheel-center i { font-size: 25px; }
+
+/* Chosen-color aura morphs across the whole table and app atmosphere. */
+.app-background-glow::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 52%, color-mix(in srgb,var(--active-game-color,#ff3333) 34%,transparent), transparent 62%);
+  opacity: .7;
+  filter: blur(24px);
+  transition: background 650ms ease, opacity 650ms ease;
+}
+.table-3d-plate { transition: transform .8s ease, box-shadow .65s ease; }
+.discard-flight-ghost.wild-color-transition-ghost {
+  overflow: visible;
+  filter: drop-shadow(0 0 8px rgba(255,255,255,.45));
+}
+.wild-color-reveal-sheen {
+  position: absolute;
+  z-index: 4;
+  inset: -2px;
+  border-radius: inherit;
+  background: linear-gradient(110deg,transparent 18%,color-mix(in srgb,var(--wild-chosen-color) 30%,transparent) 40%,#fff 50%,color-mix(in srgb,var(--wild-chosen-color) 68%,transparent) 58%,transparent 82%);
+  opacity: 0;
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+.wild-color-locked {
+  --wild-chosen-color: #ff3038;
+  box-shadow: 0 0 14px var(--wild-chosen-color), 0 0 28px color-mix(in srgb,var(--wild-chosen-color) 70%,transparent) !important;
+  filter: drop-shadow(0 0 9px var(--wild-chosen-color)) drop-shadow(0 0 19px var(--wild-chosen-color));
+}
+.wild-color-impact-ring {
+  position: fixed;
+  z-index: 10004;
+  width: 34px;
+  height: 34px;
+  border: 3px solid var(--wild-chosen-color,#ff3038);
+  border-radius: 50%;
+  box-shadow: 0 0 12px var(--wild-chosen-color,#ff3038), inset 0 0 10px var(--wild-chosen-color,#ff3038);
+  pointer-events: none;
+  transform: translate(-50%,-50%) scale(.3);
+  animation: wild-color-ring-reveal 540ms cubic-bezier(.18,.7,.24,1) forwards;
+}
+.table-3d-plate.wild-color-impact-pulse {
+  animation: wild-color-table-slam 720ms ease-out;
+}
+.app-background-glow.wild-color-impact-pulse::after {
+  animation: wild-color-atmosphere-slam 720ms ease-out;
+}
+.wild-card-impact-bounce {
+  animation: wild-card-impact-bounce 620ms cubic-bezier(.15,.9,.28,1) both;
+  animation-delay: var(--wild-bounce-delay,0ms);
+  transform-origin: center bottom;
+}
+@keyframes wild-card-impact-bounce {
+  0%,100% { translate: 0 0; }
+  24% { translate: 0 -13px; }
+  46% { translate: 0 2px; }
+  66% { translate: 0 -5px; }
+  82% { translate: 0 1px; }
+}
+@keyframes wild-color-table-slam {
+  0%,100% { box-shadow: 0 15px 40px rgba(0,0,0,.6), inset 0 0 45px rgba(0,0,0,.8), 0 0 30px var(--active-game-color); }
+  24% { box-shadow: 0 15px 40px rgba(0,0,0,.6), inset 0 0 45px rgba(0,0,0,.8), 0 0 52px var(--active-game-color); }
+  48% { box-shadow: 0 15px 40px rgba(0,0,0,.6), inset 0 0 45px rgba(0,0,0,.8), 0 0 16px var(--active-game-color); }
+  72% { box-shadow: 0 15px 40px rgba(0,0,0,.6), inset 0 0 45px rgba(0,0,0,.8), 0 0 38px var(--active-game-color); }
+}
+@keyframes wild-color-atmosphere-slam {
+  0%,100% { opacity: .7; }
+  24% { opacity: 1; }
+  58% { opacity: .78; }
+}
+@keyframes wild-color-ring-reveal {
+  0% { opacity: .95; transform: translate(-50%,-50%) scale(.3); }
+  72% { opacity: .72; }
+  100% { opacity: 0; transform: translate(-50%,-50%) scale(5.8); }
+}
+@property --active-game-color {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #ff3333;
+}
+

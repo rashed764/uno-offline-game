@@ -231,24 +231,29 @@
       <!-- OVERLAYS & MODALS -->
 
       <!-- Dynamic Color Picker Modal for Wild Cards -->
-      <div id="color-picker-modal" class="modal-overlay hidden">
-        <div class="modal-content color-picker-box animate-scale-up">
-          <h3><i class="fa-solid fa-palette"></i> Choose Wild Color</h3>
-          <p>Pick the color theme for the next plays:</p>
-          <div class="color-options-grid">
+      <div id="color-picker-modal" class="modal-overlay wild-color-overlay hidden">
+        <div class="modal-content color-picker-box">
+          <h3><i class="fa-solid fa-palette"></i> Choose Color</h3>
+          <p>Set the next color</p>
+          <div class="color-options-grid" id="color-wheel">
             <button class="color-opt opt-red" data-color="red">
+              <i class="fa-solid fa-bolt"></i>
               <span class="color-label">RED</span>
             </button>
             <button class="color-opt opt-blue" data-color="blue">
+              <i class="fa-solid fa-bolt"></i>
               <span class="color-label">BLUE</span>
             </button>
             <button class="color-opt opt-green" data-color="green">
+              <i class="fa-solid fa-bolt"></i>
               <span class="color-label">GREEN</span>
             </button>
             <button class="color-opt opt-yellow" data-color="yellow">
+              <i class="fa-solid fa-bolt"></i>
               <span class="color-label">YELLOW</span>
             </button>
           </div>
+          <div class="color-wheel-center"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
         </div>
       </div>
 

@@ -872,6 +872,10 @@
     if (tablePlate) {
       const rawColor = state.currentColor || (state.topCard ? state.topCard.color : 'red');
       const activeColor = ['red', 'blue', 'green', 'yellow'].includes(rawColor) ? rawColor : 'red';
+      const colorRgb = { red: '255,51,51', blue: '0,102,255', green: '34,204,34', yellow: '255,204,0' };
+      const colorHex = { red: '#ff3333', blue: '#0066ff', green: '#22cc22', yellow: '#ffcc00' };
+      document.documentElement.style.setProperty('--active-game-rgb', colorRgb[activeColor]);
+      document.documentElement.style.setProperty('--active-game-color', colorHex[activeColor]);
       tablePlate.style.boxShadow = `0 15px 40px rgba(0, 0, 0, 0.6), 
                                     inset 0 0 45px rgba(0, 0, 0, 0.8),
                                     0 0 30px var(--uno-${activeColor})`;
@@ -1248,6 +1252,62 @@
     return { animation, trail };
   }
 
+  function animateWildSlamFlight(ghost, overlay, flight, chosenColor) {
+    const chosen = ({ red: '#ff3038', green: '#22d34a', blue: '#258bff', yellow: '#ffd52a' })[chosenColor] || '#ff3038';
+    const sheen = document.createElement('div');
+    sheen.className = 'wild-color-reveal-sheen';
+    ghost.appendChild(sheen);
+    ghost.style.setProperty('--wild-chosen-color', chosen);
+    ghost.style.transition = 'none';
+    let cancelled = false;
+    const activeAnimations = [];
+    let resolveFinished;
+    const finished = new Promise(resolve => { resolveFinished = resolve; });
+    const animation = {
+      finished,
+      cancel() {
+        if (cancelled) return;
+        cancelled = true;
+        activeAnimations.forEach(item => { try { item.cancel(); } catch (_) {} });
+        sheen.remove();
+        resolveFinished();
+      }
+    };
+    const run = async () => {
+      const mid = `translate3d(${flight.dx * .52}px,${flight.dy * .52 - flight.height * .42}px,0) scale(1.04) rotate(-4deg)`;
+      const travel = ghost.animate([
+        { transform: flight.startTransform, offset: 0, easing: 'cubic-bezier(.2,.7,.3,1)' },
+        { transform: mid, offset: .56, easing: 'cubic-bezier(.25,.8,.35,1)' },
+        { transform: flight.endTransform, offset: 1 }
+      ], { duration: 500, fill: 'forwards' });
+      activeAnimations.push(travel);
+      await travel.finished.catch(() => {});
+      if (cancelled) return;
+
+      const reveal = sheen.animate([
+        { opacity: 0, transform: 'translateX(-125%)' },
+        { opacity: .88, offset: .38, transform: 'translateX(-15%)' },
+        { opacity: .18, transform: 'translateX(125%)' }
+      ], { duration: 330, fill: 'forwards', easing: 'ease-out' });
+      activeAnimations.push(reveal);
+      await reveal.finished.catch(() => {});
+      if (cancelled) return;
+
+      ghost.classList.add('wild-color-locked');
+      const slam = ghost.animate([
+        { transform: flight.endTransform, offset: 0, easing: 'cubic-bezier(.7,0,.9,.3)' },
+        { transform: `translate3d(${flight.dx}px,${flight.dy - 10}px,0) scale(1.07) rotate(-2deg)`, offset: .55, easing: 'cubic-bezier(.12,.82,.25,1)' },
+        { transform: `translate3d(${flight.dx}px,${flight.dy + 1}px,0) scale(.98) rotate(1deg)`, offset: .8 },
+        { transform: flight.endTransform, offset: 1 }
+      ], { duration: 150, fill: 'forwards' });
+      activeAnimations.push(slam);
+      await slam.finished.catch(() => {});
+      if (!cancelled) resolveFinished();
+    };
+    run();
+    return { animation, trail: { remove: () => sheen.remove() } };
+  }
+
   function playReverseImpact(state) {
     if (!state) return;
     const played = state.lastPlayedCard;
@@ -1296,6 +1356,92 @@
     animateReverseOrbit(state.direction, transition);
     animateReversePlayerWave(state, played?.playerId);
     playReverseSynthSound();
+  }
+
+  function playWildColorChange(color, state) {
+    const activeColor = ['red', 'blue', 'green', 'yellow'].includes(String(color).toLowerCase())
+      ? String(color).toLowerCase() : 'red';
+    const cardId = state?.lastPlayedCard?.cardId || state?.topCard?.id || '';
+    const signature = `${state?.lastPlayedCard?.playerId || ''}:${cardId}:${activeColor}`;
+    if (signature === window.lastWildColorEffectSignature
+      && Date.now() - (window.lastWildColorEffectAt || 0) < 1800) return;
+    window.lastWildColorEffectSignature = signature;
+    window.lastWildColorEffectAt = Date.now();
+
+    const rgb = { red: '255,51,51', blue: '0,102,255', green: '34,204,34', yellow: '255,204,0' }[activeColor];
+    const hex = { red: '#ff3333', blue: '#0066ff', green: '#22cc22', yellow: '#ffcc00' }[activeColor];
+    document.documentElement.style.setProperty('--active-game-rgb', rgb);
+    document.documentElement.style.setProperty('--active-game-color', hex);
+    const table = document.querySelector('.table-3d-plate');
+    if (table) table.style.boxShadow = `0 15px 40px rgba(0,0,0,.6), inset 0 0 45px rgba(0,0,0,.8), 0 0 36px var(--uno-${activeColor})`;
+    const discardTop = document.querySelector('#discard-pile-3d .card-3d:last-child');
+    if (discardTop) {
+      discardTop.classList.add('wild-color-locked');
+      discardTop.style.setProperty('--wild-chosen-color', hex);
+    }
+    playWildColorImpact(state, hex);
+    playWildColorChord(activeColor);
+  }
+  function playWildColorImpact(state, color) {
+    const pile = document.getElementById('discard-pile-3d');
+    if (pile) {
+      const rect = pile.getBoundingClientRect();
+      const ring = document.createElement('div');
+      ring.className = 'wild-color-impact-ring';
+      ring.style.left = `${rect.left + rect.width / 2}px`;
+      ring.style.top = `${rect.top + rect.height / 2}px`;
+      ring.style.setProperty('--wild-chosen-color', color || '#ff3038');
+      document.body.appendChild(ring);
+      setTimeout(() => ring.remove(), 600);
+    }
+    const table = document.querySelector('.table-3d-plate');
+    const atmosphere = document.querySelector('.app-background-glow');
+    const pulseElements = [table, atmosphere].filter(Boolean);
+    const cards = document.querySelectorAll('#player-cards-fan .card-3d, #opp-top-cards .card-3d, #opp-left-cards .card-3d, #opp-right-cards .card-3d');
+    cards.forEach((card, index) => {
+      card.style.setProperty('--wild-bounce-delay', `${(index % 8) * 18}ms`);
+    });
+    pulseElements.forEach(element => {
+      element.classList.add('wild-color-impact-pulse');
+      setTimeout(() => element.classList.remove('wild-color-impact-pulse'), 760);
+    });
+    cards.forEach(card => {
+      card.classList.add('wild-card-impact-bounce');
+      setTimeout(() => card.classList.remove('wild-card-impact-bounce'), 700);
+    });
+  }
+
+  function playWildColorChord(color) {
+    if (document.getElementById('sound-status')?.textContent?.trim() === 'OFF') return;
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    const chords = {
+      red: [261.63, 329.63, 392],
+      blue: [220, 277.18, 329.63],
+      green: [293.66, 369.99, 440],
+      yellow: [329.63, 415.3, 493.88]
+    };
+    try {
+      const audio = new AudioContextClass();
+      const now = audio.currentTime;
+      chords[color].forEach((frequency, index) => {
+        const oscillator = audio.createOscillator();
+        const envelope = audio.createGain();
+        oscillator.type = index === 1 ? 'triangle' : 'sine';
+        oscillator.frequency.setValueAtTime(frequency, now);
+        oscillator.detune.setValueAtTime(index === 0 ? -7 : index === 2 ? 7 : 0, now);
+        envelope.gain.setValueAtTime(.0001, now);
+        envelope.gain.exponentialRampToValueAtTime(.1 / (index + 1), now + .045 + index * .025);
+        envelope.gain.exponentialRampToValueAtTime(.0001, now + .72);
+        oscillator.connect(envelope).connect(audio.destination);
+        oscillator.start(now + index * .025);
+        oscillator.stop(now + .75);
+      });
+      audio.resume().catch(() => {});
+      setTimeout(() => audio.close().catch(() => {}), 950);
+    } catch (_) {
+      // Audio can be unavailable until a browser gesture unlocks it.
+    }
   }
 
   function animateReverseOrbit(direction, transition) {
@@ -1445,9 +1591,11 @@
     const isSkip = String(card.value).toLowerCase() === 'skip';
     const isReverse = String(card.value).toLowerCase() === 'reverse';
     const isDrawTwo = String(card.value).toLowerCase() === 'draw2';
+    const isWild = String(card.value).toLowerCase() === 'wild';
     if (isSkip) ghost.classList.add('power-card-glow');
     if (isReverse) ghost.classList.add('reverse-flight-ghost');
     if (isDrawTwo) ghost.classList.add('draw2-slam-ghost');
+    if (isWild) ghost.classList.add('wild-color-transition-ghost');
     ghost.classList.remove('selected', 'just-drawn');
     Object.assign(ghost.style, {
       position: 'absolute', left: `${startX}px`, top: `${startY}px`,
@@ -1462,6 +1610,7 @@
 
     const beforeState = appState.latestServerState;
     const pending = { card, el: ghost, state: null, landed: false, hand, rotation: randomAngle,
+      chosenColor: window.pendingWildChosenColor || beforeState?.currentColor || 'red',
       skipTargetId: isSkip ? getSkippedPlayerId(beforeState) : null,
       drawTwoTargetId: isDrawTwo ? getSkippedPlayerId(beforeState) : null };
     window.pendingDiscardFlight = pending;
@@ -1486,13 +1635,21 @@
         startTransform: ghost.style.transform, endTransform
       });
       pending.flight.animation.finished.then(land).catch(() => {});
+    } else if (isWild) {
+      const endTransform = `translate3d(${endCenterX - sourceCenterX}px,${endCenterY - sourceCenterY}px,0) scale(1) rotate(${randomAngle}deg)`;
+      pending.flight = animateWildSlamFlight(ghost, overlay, {
+        startX, startY, width: targetWidth, height: targetHeight,
+        dx: endCenterX - sourceCenterX, dy: endCenterY - sourceCenterY,
+        startTransform: ghost.style.transform, endTransform
+      }, pending.chosenColor);
+      pending.flight.animation.finished.then(land).catch(() => {});
     } else {
       requestAnimationFrame(() => {
         ghost.style.transform = `translate3d(${endCenterX - sourceCenterX}px,${endCenterY - sourceCenterY}px,0) scale(1) rotate(${randomAngle}deg)`;
       });
     }
     ghost.addEventListener('transitionend', land, { once: true });
-    setTimeout(land, isReverse ? 720 : isDrawTwo ? 470 : 500);
+    setTimeout(land, isReverse ? 720 : isDrawTwo ? 470 : isWild ? 1320 : 500);
     setTimeout(() => {
       if (window.pendingDiscardFlight === pending) cancelDiscardFlight();
     }, 5000);
@@ -1531,6 +1688,9 @@
     if (pending.drawTwoTargetId != null) {
       const incoming = hideDrawTwoTargetCards(pending.drawTwoTargetId, pending.state);
       playDrawTwoImpact(pending.drawTwoTargetId, pending.state, incoming);
+    }
+    if (String(pending.card.value).toLowerCase() === 'wild') {
+      playWildColorChange(pending.state.currentColor, pending.state);
     }
   }
 
@@ -1880,6 +2040,7 @@
     const isSkip = String(nextState.topCard.value).toLowerCase() === 'skip';
     const isReverse = String(nextState.topCard.value).toLowerCase() === 'reverse';
     const isDrawTwo = String(nextState.topCard.value).toLowerCase() === 'draw2';
+    const isWild = String(nextState.topCard.value).toLowerCase() === 'wild';
     const targetId = isSkip ? getSkippedPlayerId(previousState) : null;
     const drawTwoTargetId = isDrawTwo ? getSkippedPlayerId(previousState) : null;
     const signature = `${actorId}:${nextState.topCard.id}`;
@@ -1895,6 +2056,7 @@
       if (isSkip) playSkipImpact(targetId, nextState);
       if (isReverse) playReverseImpact(nextState);
       if (isDrawTwo) playDrawTwoImpact(drawTwoTargetId, nextState, incomingDrawTwoCards);
+      if (isWild) playWildColorChange(nextState.currentColor, nextState);
       return;
     }
 
@@ -1921,6 +2083,7 @@
     if (isSkip) ghost.classList.add('power-card-glow');
     if (isReverse) ghost.classList.add('reverse-flight-ghost');
     if (isDrawTwo) ghost.classList.add('draw2-slam-ghost');
+    if (isWild) ghost.classList.add('wild-color-transition-ghost');
     Object.assign(ghost.style, {
       position: 'absolute', left: `${startCenterX - width / 2}px`, top: `${startCenterY - height / 2}px`,
       width: `${width}px`, height: `${height}px`, zIndex: '10000',
@@ -1931,15 +2094,18 @@
     ghost.getBoundingClientRect();
     let landed = false;
     let reverseFlight = null;
+    let wildFlight = null;
     const land = () => {
       if (landed) return;
       landed = true;
       ghost.remove();
       reverseFlight?.trail.remove();
+      wildFlight?.trail.remove();
       if (pileCard?.isConnected) pileCard.style.visibility = '';
       if (isSkip) playSkipImpact(targetId, nextState);
       if (isReverse) playReverseImpact(nextState);
       if (isDrawTwo) playDrawTwoImpact(drawTwoTargetId, nextState, incomingDrawTwoCards);
+      if (isWild) playWildColorChange(nextState.currentColor, nextState);
     };
     const endTransform = `translate3d(${endCenterX - startCenterX}px,${endCenterY - startCenterY}px,0) scale(1) rotate(0deg)`;
     if (isReverse) {
@@ -1958,6 +2124,14 @@
       });
       flight.animation.finished.then(land).catch(() => {});
       setTimeout(land, 470);
+    } else if (isWild) {
+      wildFlight = animateWildSlamFlight(ghost, overlay, {
+        startX: startCenterX - width / 2, startY: startCenterY - height / 2,
+        width, height, dx: endCenterX - startCenterX, dy: endCenterY - startCenterY,
+        startTransform: ghost.style.transform, endTransform
+      }, String(nextState.currentColor || 'red').toLowerCase());
+      wildFlight.animation.finished.then(land).catch(() => {});
+      setTimeout(land, 1320);
     } else {
       requestAnimationFrame(() => { ghost.style.transform = endTransform; });
       ghost.addEventListener('transitionend', land, { once: true });
@@ -1998,7 +2172,16 @@
         appState.pendingWildCardId = card.id;
         appState.pendingWildCardIndex = idx;
         const colorModal = document.getElementById('color-picker-modal');
-        if (colorModal) colorModal.classList.remove('hidden');
+        if (colorModal) {
+          const discardHub = document.getElementById('discard-pile-3d');
+          const wheelAnchor = colorModal.querySelector('.color-picker-box');
+          const hubRect = discardHub?.getBoundingClientRect();
+          if (wheelAnchor && hubRect) {
+            wheelAnchor.style.left = `${hubRect.left + hubRect.width / 2}px`;
+            wheelAnchor.style.top = `${hubRect.top + hubRect.height / 2}px`;
+          }
+          colorModal.classList.remove('hidden');
+        }
       } else {
         appState.pendingAction = 'play';
         startDiscardFlight(card, cardEl);
@@ -2259,6 +2442,7 @@
           const wildElement = hand && Array.from(hand.querySelectorAll('.card-3d'))
             .find(cardEl => cardEl.dataset.cardId === String(wildCardId));
           appState.pendingAction = 'play';
+          window.pendingWildChosenColor = chosenColor;
           if (wildCard && wildElement) startDiscardFlight(wildCard, wildElement);
           socket.emit('play_card', {
             roomId: appState.roomId,
@@ -2269,6 +2453,7 @@
 
           appState.pendingWildCardId = null;
           appState.pendingWildCardIndex = null;
+          setTimeout(() => { window.pendingWildChosenColor = null; }, 3000);
 
           setTimeout(() => {
             if (appState.pendingAction === 'play') appState.pendingAction = null;
