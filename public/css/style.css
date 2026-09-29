@@ -1475,8 +1475,8 @@ input[type="text"]:focus {
 }
 
 @keyframes buttonPulse {
-  0% { transform: scale(1); box-shadow: 0 0 10px rgba(255, 51, 51, 0.5); }
-  100% { transform: scale(1.1); box-shadow: 0 0 25px rgba(255, 51, 51, 0.8); }
+  0% { transform: scale(1); }
+  100% { transform: scale(1.04); }
 }
 
 @keyframes bounceTrophy {
@@ -1799,8 +1799,8 @@ input[type="text"]:focus {
 }
 
 @keyframes activePulse {
-  0% { box-shadow: 0 0 4px var(--uno-yellow); }
-  100% { box-shadow: 0 0 15px var(--uno-yellow), 0 0 25px rgba(255,204,0,0.6); }
+  0% { opacity: .88; }
+  100% { opacity: 1; }
 }
 
 /* ==========================================================================
@@ -1933,16 +1933,6 @@ input[type="range"] {
 /* Custom highlight for newly drawn cards */
 .card-3d.just-drawn {
   box-shadow: 0 0 20px 4px #ffd700, 0 10px 20px rgba(0, 0, 0, 0.4) !important;
-  animation: pulse-glow 1.5s infinite alternate;
-}
-
-@keyframes pulse-glow {
-  0% {
-    box-shadow: 0 0 12px 2px #ffd700, 0 10px 20px rgba(0, 0, 0, 0.4) !important;
-  }
-  100% {
-    box-shadow: 0 0 24px 6px #ffd700, 0 10px 20px rgba(0, 0, 0, 0.4) !important;
-  }
 }
 
 /* ==========================================================================
@@ -2331,6 +2321,131 @@ input[type="range"] {
   0%,100% { scale: 1; filter: none; }
   36% { scale: 1.08; filter: brightness(1.5) drop-shadow(0 0 15px #e054ff); }
   58% { scale: .98; }
+}
+
+/* Wild Draw Four: heavier slam followed by four separate energy-card hits. */
+.discard-flight-ghost.draw4-slam-ghost {
+  filter: drop-shadow(0 0 10px #f44cff) drop-shadow(0 0 24px #7c39ff);
+  box-shadow: 0 0 24px rgba(202,67,255,.9);
+}
+.draw4-slam-trail {
+  position: absolute;
+  z-index: 9998;
+  height: 14px;
+  border-radius: 50%;
+  pointer-events: none;
+  transform-origin: left center;
+  background: linear-gradient(90deg,transparent,#843bff,#ff5bf2,#fff,#ffd45a,transparent);
+  box-shadow: 0 0 16px #bd45ff, 0 0 32px #ff4bdd;
+  filter: blur(2px);
+}
+.draw4-impact-core,
+.draw4-target-burst {
+  position: fixed;
+  z-index: 10002;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle,#fff 0 8%,#fff1a3 16%,rgba(255,84,236,.9) 38%,rgba(119,55,255,.45) 58%,transparent 74%);
+  box-shadow: 0 0 28px #fff, 0 0 58px rgba(232,65,255,.9), 0 0 86px rgba(110,56,255,.7);
+  transform: translate(-50%,-50%) scale(.2);
+  animation: draw4-core-slam 760ms cubic-bezier(.12,.72,.2,1) forwards;
+}
+@keyframes draw4-core-slam {
+  0% { opacity: 1; transform: translate(-50%,-50%) scale(.2); }
+  22% { opacity: 1; transform: translate(-50%,-50%) scale(2.8); }
+  100% { opacity: 0; transform: translate(-50%,-50%) scale(.8); }
+}
+.draw4-impact-ring,
+.draw4-target-ring {
+  position: fixed;
+  z-index: 10001;
+  width: 26px;
+  height: 26px;
+  border: 3px solid rgba(255,236,255,.98);
+  border-radius: 50%;
+  pointer-events: none;
+  box-shadow: 0 0 16px #fff, 0 0 27px #ef48ff, inset 0 0 9px #a73dff;
+  transform: translate(-50%,-50%) scale(.15);
+  animation: draw4-ring-blast 820ms cubic-bezier(.1,.7,.2,1) var(--draw2-delay,0ms) forwards;
+}
+.draw4-target-ring { border-color: #fff1a3; box-shadow: 0 0 18px #fff, 0 0 28px #ff50e9, inset 0 0 9px #ffd45a; }
+@keyframes draw4-ring-blast {
+  0% { opacity: 1; transform: translate(-50%,-50%) scale(.15); }
+  100% { opacity: 0; transform: translate(-50%,-50%) scale(10); }
+}
+.draw4-deck-jump { animation: draw4-deck-recoil 820ms cubic-bezier(.16,.86,.24,1); }
+@keyframes draw4-deck-recoil {
+  0%,100% { transform: translateY(0) scale(1); }
+  20% { transform: translateY(-48px) scale(1.18); filter: drop-shadow(0 0 22px #ec4cff); }
+  40% { transform: translateY(9px) scale(.94); }
+  62% { transform: translateY(-12px) scale(1.05); }
+  80% { transform: translateY(3px) scale(.99); }
+}
+.draw4-spectral-card {
+  position: absolute;
+  z-index: 10004;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font: 1000 20px/1 system-ui,sans-serif;
+  text-shadow: 0 0 6px #fff, 0 0 15px #ff58eb;
+  background: linear-gradient(145deg,#fff1a3,#f44de8 38%,#7935ff 75%,#41eaff);
+  border: 1px solid #fff;
+  border-radius: 7px;
+  box-shadow: 0 0 12px #fff, 0 0 27px #e843ff, inset 0 0 12px rgba(255,255,255,.85);
+  pointer-events: none;
+  backface-visibility: hidden;
+}
+.draw4-spectral-card::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border: 1px solid rgba(255,255,255,.8);
+  border-radius: 4px;
+}
+.draw4-spectral-card.draw2-spectral-hover { animation: draw4-spectral-charge 260ms ease-in-out infinite alternate; }
+@keyframes draw4-spectral-charge {
+  from { filter: drop-shadow(0 0 7px #ed70ff); }
+  to { filter: drop-shadow(0 0 17px #fff17a); }
+}
+.draw4-plasma-trail {
+  position: absolute;
+  z-index: 10003;
+  height: 12px;
+  transform-origin: left center;
+  border-radius: 50%;
+  background: linear-gradient(90deg,rgba(120,50,255,.1),#a840ff,#fff,#ff56df,#ffe477,rgba(255,255,255,.1));
+  box-shadow: 0 0 12px #d044ff, 0 0 26px #ff50dc;
+  filter: blur(2px);
+  pointer-events: none;
+}
+.draw4-cards-label {
+  position: fixed;
+  z-index: 10005;
+  color: #fff;
+  font: 1000 24px/1 system-ui,sans-serif;
+  letter-spacing: .1em;
+  white-space: nowrap;
+  text-shadow: 0 0 6px #fff, 0 0 16px #ff57e8, 0 0 30px #793cff;
+  pointer-events: none;
+  transform: translate(-50%,-50%) scale(.2) rotate(-10deg);
+  animation: draw4-label-impact 1.35s cubic-bezier(.14,1.15,.25,1) forwards;
+}
+@keyframes draw4-label-impact {
+  0% { opacity: 0; transform: translate(-50%,-50%) scale(.2) rotate(-10deg); }
+  18% { opacity: 1; transform: translate(-50%,-50%) scale(1.28) rotate(4deg); }
+  38%,78% { opacity: 1; transform: translate(-50%,-50%) scale(1) rotate(0); }
+  100% { opacity: 0; transform: translate(-50%,-85%) scale(.94); }
+}
+.draw4-player-impact { animation: draw4-target-hit 1.35s cubic-bezier(.18,.9,.25,1); }
+@keyframes draw4-target-hit {
+  0%,100% { scale: 1; filter: none; }
+  22% { scale: 1.12; filter: brightness(1.7) drop-shadow(0 0 22px #ed48ff); }
+  48% { scale: .96; }
+  70% { scale: 1.05; filter: brightness(1.25) drop-shadow(0 0 13px #ffda64); }
 }
 
 /* Wild selector: a transparent overlay anchors the four choices to the discard hub. */

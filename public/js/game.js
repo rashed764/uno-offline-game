@@ -858,12 +858,19 @@
     if (myTitleEl) {
       if (isMyTurn) {
         myTitleEl.classList.add('active-turn');
-        myTitleEl.innerHTML = `<i class="fa-solid fa-play"></i> YOUR TURN!`;
+        if (myTitleEl.dataset.turnLabel !== 'active') {
+          myTitleEl.innerHTML = `<i class="fa-solid fa-play"></i> YOUR TURN!`;
+          myTitleEl.dataset.turnLabel = 'active';
+        }
       } else {
         myTitleEl.classList.remove('active-turn');
-        myTitleEl.textContent = state.currentTurnPlayerName
+        const turnLabel = state.currentTurnPlayerName
           ? `${state.currentTurnPlayerName}'s Turn`
           : 'Your Hand';
+        if (myTitleEl.dataset.turnLabel !== turnLabel) {
+          myTitleEl.textContent = turnLabel;
+          myTitleEl.dataset.turnLabel = turnLabel;
+        }
       }
     }
 
@@ -874,11 +881,14 @@
       const activeColor = ['red', 'blue', 'green', 'yellow'].includes(rawColor) ? rawColor : 'red';
       const colorRgb = { red: '255,51,51', blue: '0,102,255', green: '34,204,34', yellow: '255,204,0' };
       const colorHex = { red: '#ff3333', blue: '#0066ff', green: '#22cc22', yellow: '#ffcc00' };
-      document.documentElement.style.setProperty('--active-game-rgb', colorRgb[activeColor]);
-      document.documentElement.style.setProperty('--active-game-color', colorHex[activeColor]);
-      tablePlate.style.boxShadow = `0 15px 40px rgba(0, 0, 0, 0.6), 
+      if (tablePlate.dataset.activeColor !== activeColor) {
+        tablePlate.dataset.activeColor = activeColor;
+        document.documentElement.style.setProperty('--active-game-rgb', colorRgb[activeColor]);
+        document.documentElement.style.setProperty('--active-game-color', colorHex[activeColor]);
+        tablePlate.style.boxShadow = `0 15px 40px rgba(0, 0, 0, 0.6),
                                     inset 0 0 45px rgba(0, 0, 0, 0.8),
                                     0 0 30px var(--uno-${activeColor})`;
+      }
     }
 
     // 4. Render center discard pile
@@ -1010,10 +1020,6 @@
       relativePlayers.push(state.players[idx]);
     }
 
-    if (seatTop) seatTop.classList.add('hidden');
-    if (seatLeft) seatLeft.classList.add('hidden');
-    if (seatRight) seatRight.classList.add('hidden');
-
     let leftPlayer = null;
     let topPlayer = null;
     let rightPlayer = null;
@@ -1029,26 +1035,25 @@
       rightPlayer = relativePlayers[2];
     }
 
-    if (leftPlayer && seatLeft) {
-      bindSeatData('left', leftPlayer, state.currentTurnPlayerId);
-      seatLeft.classList.remove('hidden');
-    }
-    if (topPlayer && seatTop) {
-      bindSeatData('top', topPlayer, state.currentTurnPlayerId);
-      seatTop.classList.remove('hidden');
-    }
-    if (rightPlayer && seatRight) {
-      bindSeatData('right', rightPlayer, state.currentTurnPlayerId);
-      seatRight.classList.remove('hidden');
-    }
+    if (seatLeft) seatLeft.classList.toggle('hidden', !leftPlayer);
+    if (seatTop) seatTop.classList.toggle('hidden', !topPlayer);
+    if (seatRight) seatRight.classList.toggle('hidden', !rightPlayer);
+    if (leftPlayer) bindSeatData('left', leftPlayer, state.currentTurnPlayerId);
+    if (topPlayer) bindSeatData('top', topPlayer, state.currentTurnPlayerId);
+    if (rightPlayer) bindSeatData('right', rightPlayer, state.currentTurnPlayerId);
   }
 
   function bindSeatData(position, player, currentTurnPlayerId) {
     const nameEl = document.getElementById(`opp-${position}-name`);
     if (nameEl) {
-      nameEl.innerHTML = player.isBot
-        ? `<i class="fa-solid fa-robot"></i> ${player.name}`
-        : `<i class="fa-solid fa-user-astronaut"></i> ${player.name}`;
+      const playerId = String(player.id ?? '');
+      const signature = `${playerId}:${player.name || ''}:${Boolean(player.isBot)}`;
+      if (nameEl.dataset.playerSignature !== signature) {
+        nameEl.dataset.playerSignature = signature;
+        nameEl.innerHTML = player.isBot
+          ? `<i class="fa-solid fa-robot"></i> ${player.name}`
+          : `<i class="fa-solid fa-user-astronaut"></i> ${player.name}`;
+      }
     }
 
     const countEl = document.getElementById(`opp-${position}-count`);
@@ -1056,29 +1061,20 @@
       ? player.cardCount
       : (Number.isFinite(player.cardCount) ? player.cardCount : (Array.isArray(player.hand) ? player.hand.length : (player.handLength || 0)));
 
-    if (countEl && !window.isDealingOrFanning) {
+    if (countEl && !window.isDealingOrFanning && countEl.textContent !== String(cardCount)) {
       countEl.textContent = cardCount;
     }
 
     const isCurrentTurn = Boolean(player.id && String(player.id) === String(currentTurnPlayerId));
 
     const oppSeat = document.querySelector(`.seat-${position}`);
-    if (oppSeat) {
-      if (isCurrentTurn) oppSeat.classList.add('active-turn');
-      else oppSeat.classList.remove('active-turn');
-    }
+    if (oppSeat) oppSeat.classList.toggle('active-turn', isCurrentTurn);
 
     const oppInfoEl = document.querySelector(`.seat-${position} .opp-info`);
-    if (oppInfoEl) {
-      if (isCurrentTurn) oppInfoEl.classList.add('active-turn');
-      else oppInfoEl.classList.remove('active-turn');
-    }
+    if (oppInfoEl) oppInfoEl.classList.toggle('active-turn', isCurrentTurn);
 
     const oppCardEl = document.querySelector(`.seat-${position} .opponent-card`);
-    if (oppCardEl) {
-      if (isCurrentTurn) oppCardEl.classList.add('active-turn');
-      else oppCardEl.classList.remove('active-turn');
-    }
+    if (oppCardEl) oppCardEl.classList.toggle('active-turn', isCurrentTurn);
 
     // Do NOT spawn or wipe opponent cards while dealing or fanning is active!
     if (window.isDealingOrFanning) {
@@ -1249,6 +1245,32 @@
       { opacity: .85, transform: `rotate(${flightAngle}deg) scaleX(.08)` },
       { opacity: 0, transform: `rotate(${flightAngle}deg) scaleX(1)` }
     ], { duration: 380, easing: 'ease-out', fill: 'forwards' });
+    return { animation, trail };
+  }
+
+  function animateDrawFourSlamFlight(ghost, overlay, flight) {
+    const trail = document.createElement('div');
+    trail.className = 'draw4-slam-trail';
+    const angle = Math.atan2(flight.dy, flight.dx) * 180 / Math.PI;
+    Object.assign(trail.style, {
+      left: `${flight.startX + flight.width / 2}px`,
+      top: `${flight.startY + flight.height / 2}px`,
+      width: `${Math.max(64, Math.hypot(flight.dx, flight.dy))}px`,
+      transform: `rotate(${angle}deg) scaleX(.04)`
+    });
+    overlay.appendChild(trail);
+    ghost.style.transition = 'none';
+    const animation = ghost.animate([
+      { transform: flight.startTransform, offset: 0, easing: 'cubic-bezier(.2,.72,.25,1)' },
+      { transform: `translate3d(${flight.dx * .7}px,${flight.dy * .7 - flight.height * .42}px,0) scale(1.12) rotate(-9deg)`, offset: .68, easing: 'cubic-bezier(.6,.02,.95,.35)' },
+      { transform: `translate3d(${flight.dx}px,${flight.dy - 13}px,0) scale(1.2) rotate(3deg)`, offset: .88, easing: 'cubic-bezier(.12,.86,.22,1)' },
+      { transform: flight.endTransform, offset: 1 }
+    ], { duration: 500, fill: 'forwards' });
+    trail.animate([
+      { opacity: 0, transform: `rotate(${angle}deg) scaleX(.04)` },
+      { opacity: .98, offset: .34, transform: `rotate(${angle}deg) scaleX(1)` },
+      { opacity: 0, transform: `rotate(${angle}deg) scaleX(.2)` }
+    ], { duration: 500, easing: 'ease-out', fill: 'forwards' });
     return { animation, trail };
   }
 
@@ -1591,10 +1613,12 @@
     const isSkip = String(card.value).toLowerCase() === 'skip';
     const isReverse = String(card.value).toLowerCase() === 'reverse';
     const isDrawTwo = String(card.value).toLowerCase() === 'draw2';
+    const isDrawFour = String(card.value).toLowerCase() === 'wild_draw4';
     const isWild = String(card.value).toLowerCase() === 'wild';
     if (isSkip) ghost.classList.add('power-card-glow');
     if (isReverse) ghost.classList.add('reverse-flight-ghost');
     if (isDrawTwo) ghost.classList.add('draw2-slam-ghost');
+    if (isDrawFour) ghost.classList.add('draw4-slam-ghost');
     if (isWild) ghost.classList.add('wild-color-transition-ghost');
     ghost.classList.remove('selected', 'just-drawn');
     Object.assign(ghost.style, {
@@ -1612,7 +1636,8 @@
     const pending = { card, el: ghost, state: null, landed: false, hand, rotation: randomAngle,
       chosenColor: window.pendingWildChosenColor || beforeState?.currentColor || 'red',
       skipTargetId: isSkip ? getSkippedPlayerId(beforeState) : null,
-      drawTwoTargetId: isDrawTwo ? getSkippedPlayerId(beforeState) : null };
+      drawTwoTargetId: isDrawTwo ? getSkippedPlayerId(beforeState) : null,
+      drawFourTargetId: isDrawFour ? getSkippedPlayerId(beforeState) : null };
     window.pendingDiscardFlight = pending;
     const land = () => {
       if (window.pendingDiscardFlight !== pending || pending.landed) return;
@@ -1635,6 +1660,14 @@
         startTransform: ghost.style.transform, endTransform
       });
       pending.flight.animation.finished.then(land).catch(() => {});
+    } else if (isDrawFour) {
+      const endTransform = `translate3d(${endCenterX - sourceCenterX}px,${endCenterY - sourceCenterY}px,0) scale(1) rotate(${randomAngle}deg)`;
+      pending.flight = animateDrawFourSlamFlight(ghost, overlay, {
+        startX, startY, width: targetWidth, height: targetHeight,
+        dx: endCenterX - sourceCenterX, dy: endCenterY - sourceCenterY,
+        startTransform: ghost.style.transform, endTransform
+      });
+      pending.flight.animation.finished.then(land).catch(() => {});
     } else if (isWild) {
       const endTransform = `translate3d(${endCenterX - sourceCenterX}px,${endCenterY - sourceCenterY}px,0) scale(1) rotate(${randomAngle}deg)`;
       pending.flight = animateWildSlamFlight(ghost, overlay, {
@@ -1649,7 +1682,7 @@
       });
     }
     ghost.addEventListener('transitionend', land, { once: true });
-    setTimeout(land, isReverse ? 720 : isDrawTwo ? 470 : isWild ? 1320 : 500);
+    setTimeout(land, isReverse ? 720 : isDrawTwo ? 470 : isDrawFour ? 540 : isWild ? 1320 : 500);
     setTimeout(() => {
       if (window.pendingDiscardFlight === pending) cancelDiscardFlight();
     }, 5000);
@@ -1688,6 +1721,10 @@
     if (pending.drawTwoTargetId != null) {
       const incoming = hideDrawTwoTargetCards(pending.drawTwoTargetId, pending.state);
       playDrawTwoImpact(pending.drawTwoTargetId, pending.state, incoming);
+    }
+    if (pending.drawFourTargetId != null) {
+      const incoming = hideDrawTwoTargetCards(pending.drawFourTargetId, pending.state, 4);
+      playDrawTwoImpact(pending.drawFourTargetId, pending.state, incoming);
     }
     if (String(pending.card.value).toLowerCase() === 'wild') {
       playWildColorChange(pending.state.currentColor, pending.state);
@@ -1739,7 +1776,7 @@
     setTimeout(() => table?.classList.remove('skip-table-rumble'), 500);
   }
 
-  function hideDrawTwoTargetCards(playerId, state) {
+  function hideDrawTwoTargetCards(playerId, state, drawCount = 2) {
     const player = state.players?.find(item => String(item.id) === String(playerId));
     if (!player) return null;
     const isMe = String(playerId) === String(appState.myPlayerId || socket.id);
@@ -1749,17 +1786,18 @@
       : (seatName ? document.getElementById(`opp-${seatName}-cards`) : null);
     if (!container) return null;
     const cards = Array.from(container.querySelectorAll('.card-3d'));
-    const startIndex = Math.max(0, Number(player.cardCount || 0) - 2);
-    const incomingCards = cards.slice(startIndex, startIndex + 2);
+    const startIndex = Math.max(0, Number(player.cardCount || 0) - drawCount);
+    const incomingCards = cards.slice(startIndex, startIndex + drawCount);
     incomingCards.forEach(card => { card.style.visibility = 'hidden'; });
     const countEl = isMe ? null : document.getElementById(`opp-${seatName}-count`);
     const currentCount = countEl ? Number(countEl.textContent) : null;
-    if (countEl && Number.isFinite(currentCount)) countEl.textContent = String(Math.max(0, Number(player.cardCount) - 2));
+    if (countEl && Number.isFinite(currentCount)) countEl.textContent = String(Math.max(0, Number(player.cardCount) - drawCount));
     const incoming = {
       cards: incomingCards,
       countEl,
       finalCount: Number(player.cardCount || 0),
       oldCount: Number.isFinite(currentCount) ? String(currentCount) : null,
+      drawCount,
       restored: false
     };
     window.pendingDrawTwoVisual = incoming;
@@ -1791,6 +1829,8 @@
     const pile = document.getElementById('discard-pile-3d');
     if (playerId == null) return;
     const incoming = incomingCards || hideDrawTwoTargetCards(playerId, state);
+    const drawCount = incoming?.drawCount || 2;
+    const isDrawFour = drawCount === 4;
     if (!overlay || !deck || !pile) {
       restoreDrawTwoTargetCards(incoming);
       return;
@@ -1817,14 +1857,14 @@
     const targetY = targetRect.top + targetRect.height / 2;
 
     const pileBurst = document.createElement('div');
-    pileBurst.className = 'draw2-impact-core';
+    pileBurst.className = isDrawFour ? 'draw4-impact-core' : 'draw2-impact-core';
     pileBurst.style.left = `${pileX}px`;
     pileBurst.style.top = `${pileY}px`;
     overlay.appendChild(pileBurst);
     setTimeout(() => pileBurst.remove(), 700);
     for (let i = 0; i < 3; i++) {
       const ring = document.createElement('div');
-      ring.className = 'draw2-impact-ring';
+      ring.className = isDrawFour ? 'draw4-impact-ring' : 'draw2-impact-ring';
       ring.style.left = `${pileX}px`;
       ring.style.top = `${pileY}px`;
       ring.style.setProperty('--draw2-delay', `${i * 90}ms`);
@@ -1832,28 +1872,30 @@
       setTimeout(() => ring.remove(), 1000);
     }
 
-    deck.classList.remove('draw2-deck-jump');
+    const deckJumpClass = isDrawFour ? 'draw4-deck-jump' : 'draw2-deck-jump';
+    deck.classList.remove('draw2-deck-jump', 'draw4-deck-jump');
     void deck.offsetWidth;
-    deck.classList.add('draw2-deck-jump');
-    setTimeout(() => deck.classList.remove('draw2-deck-jump'), 720);
+    deck.classList.add(deckJumpClass);
+    setTimeout(() => deck.classList.remove(deckJumpClass), isDrawFour ? 900 : 720);
 
-    targetNode.classList.remove('draw2-player-impact');
+    const targetImpactClass = isDrawFour ? 'draw4-player-impact' : 'draw2-player-impact';
+    targetNode.classList.remove('draw2-player-impact', 'draw4-player-impact');
     void targetNode.offsetWidth;
-    targetNode.classList.add('draw2-player-impact');
-    setTimeout(() => targetNode.classList.remove('draw2-player-impact'), 1100);
+    targetNode.classList.add(targetImpactClass);
+    setTimeout(() => targetNode.classList.remove(targetImpactClass), isDrawFour ? 1450 : 1100);
 
     let missileHits = 0;
     const showTargetImpact = () => {
       missileHits++;
       const burst = document.createElement('div');
-      burst.className = 'draw2-target-burst';
+      burst.className = isDrawFour ? 'draw4-target-burst' : 'draw2-target-burst';
       burst.style.left = `${targetX}px`;
       burst.style.top = `${targetY}px`;
       overlay.appendChild(burst);
       setTimeout(() => burst.remove(), 850);
       for (let i = 0; i < 2; i++) {
         const ring = document.createElement('div');
-        ring.className = 'draw2-target-ring';
+        ring.className = isDrawFour ? 'draw4-target-ring' : 'draw2-target-ring';
         ring.style.left = `${targetX}px`;
         ring.style.top = `${targetY}px`;
         ring.style.setProperty('--draw2-delay', `${i * 70}ms`);
@@ -1862,26 +1904,28 @@
       }
       if (missileHits === 1) {
         const text = document.createElement('div');
-        text.className = 'draw2-cards-label';
-        text.textContent = '+2 CARDS!';
+        text.className = isDrawFour ? 'draw4-cards-label' : 'draw2-cards-label';
+        text.textContent = `+${drawCount} CARDS!`;
         text.style.left = `${targetX}px`;
         text.style.top = `${targetY - 34}px`;
         overlay.appendChild(text);
         setTimeout(() => text.remove(), 1250);
       }
-      if (missileHits >= 2) restoreDrawTwoTargetCards(incoming);
+      if (missileHits >= drawCount) restoreDrawTwoTargetCards(incoming);
     };
 
-    const cardWidth = 52;
-    const cardHeight = 82;
-    [-1, 1].forEach((side, index) => {
-      const x = deckX + side * 12;
+    const cardWidth = isDrawFour ? 44 : 52;
+    const cardHeight = isDrawFour ? 70 : 82;
+    const offsets = isDrawFour ? [-1.5, -.5, .5, 1.5] : [-1, 1];
+    offsets.forEach((side, index) => {
+      const x = deckX + side * (isDrawFour ? 10 : 12);
       const y = deckY;
-      const hoverX = x + side * 20;
-      const hoverY = y - 78 - index * 12;
+      const hoverX = x + side * (isDrawFour ? 24 : 20);
+      const hoverY = y - (isDrawFour ? 70 : 78) - (index % 2) * (isDrawFour ? 24 : 12);
       const card = document.createElement('div');
-      card.className = 'draw2-spectral-card';
-      card.innerHTML = '<span class="draw2-spectral-corner">+2</span><b>+2</b><span class="draw2-spectral-corner draw2-spectral-corner-bottom">+2</span>';
+      const glyph = isDrawFour ? '+1' : '+2';
+      card.className = isDrawFour ? 'draw4-spectral-card' : 'draw2-spectral-card';
+      card.innerHTML = `<span class="draw2-spectral-corner">${glyph}</span><b>${glyph}</b><span class="draw2-spectral-corner draw2-spectral-corner-bottom">${glyph}</span>`;
       Object.assign(card.style, {
         left: `${x - cardWidth / 2}px`, top: `${y - cardHeight / 2}px`,
         width: `${cardWidth}px`, height: `${cardHeight}px`,
@@ -1889,7 +1933,7 @@
       });
       overlay.appendChild(card);
 
-      const hoverTransform = `translate3d(${hoverX - x}px,${hoverY - y}px,0) scale(1) rotate(${side * 12}deg)`;
+      const hoverTransform = `translate3d(${hoverX - x}px,${hoverY - y}px,0) scale(1) rotate(${side * (isDrawFour ? 9 : 12)}deg)`;
       const pop = card.animate([
         { transform: 'translate3d(0,0,0) scale(.12) rotate(0deg)', opacity: 0 },
         { transform: hoverTransform, opacity: 1, offset: 1 }
@@ -1905,7 +1949,7 @@
           const angle = Math.atan2(dy, dx) * 180 / Math.PI;
           const distance = Math.hypot(dx, dy);
           const trail = document.createElement('div');
-          trail.className = 'draw2-plasma-trail';
+          trail.className = isDrawFour ? 'draw4-plasma-trail' : 'draw2-plasma-trail';
           Object.assign(trail.style, {
             left: `${hoverX}px`, top: `${hoverY}px`, width: `${distance}px`,
             transform: `rotate(${angle}deg) scaleX(0)`
@@ -1925,11 +1969,11 @@
             trail.remove();
             showTargetImpact();
           }).catch(() => {});
-        }, 330 + index * 70);
+        }, (isDrawFour ? 220 : 330) + index * (isDrawFour ? 45 : 70));
       }).catch(() => {});
-      setTimeout(() => card.remove(), 2600);
+      setTimeout(() => card.remove(), isDrawFour ? 2400 : 2600);
     });
-    setTimeout(() => restoreDrawTwoTargetCards(incoming), 2400);
+    setTimeout(() => restoreDrawTwoTargetCards(incoming), isDrawFour ? 2600 : 2400);
   }
 
   function captureRemoteDiscardSource(previousState, nextState) {
@@ -2040,14 +2084,18 @@
     const isSkip = String(nextState.topCard.value).toLowerCase() === 'skip';
     const isReverse = String(nextState.topCard.value).toLowerCase() === 'reverse';
     const isDrawTwo = String(nextState.topCard.value).toLowerCase() === 'draw2';
+    const isDrawFour = String(nextState.topCard.value).toLowerCase() === 'wild_draw4';
     const isWild = String(nextState.topCard.value).toLowerCase() === 'wild';
     const targetId = isSkip ? getSkippedPlayerId(previousState) : null;
     const drawTwoTargetId = isDrawTwo ? getSkippedPlayerId(previousState) : null;
+    const drawFourTargetId = isDrawFour ? getSkippedPlayerId(previousState) : null;
     const signature = `${actorId}:${nextState.topCard.id}`;
-    if (((isSkip && targetId == null) || (isDrawTwo && drawTwoTargetId == null))
+    if (((isSkip && targetId == null) || (isDrawTwo && drawTwoTargetId == null)
+      || (isDrawFour && drawFourTargetId == null))
       || signature === window.lastRemoteDiscardAnimationKey) return;
     window.lastRemoteDiscardAnimationKey = signature;
     const incomingDrawTwoCards = isDrawTwo ? hideDrawTwoTargetCards(drawTwoTargetId, nextState) : null;
+    const incomingDrawFourCards = isDrawFour ? hideDrawTwoTargetCards(drawFourTargetId, nextState, 4) : null;
 
     const actorSeat = getOpponentPositionName(actorId, previousState.players || [], appState.myPlayerId || socket.id);
     const sourceEl = actorSeat ? document.getElementById(`opp-${actorSeat}-cards`) : null;
@@ -2056,6 +2104,7 @@
       if (isSkip) playSkipImpact(targetId, nextState);
       if (isReverse) playReverseImpact(nextState);
       if (isDrawTwo) playDrawTwoImpact(drawTwoTargetId, nextState, incomingDrawTwoCards);
+      if (isDrawFour) playDrawTwoImpact(drawFourTargetId, nextState, incomingDrawFourCards);
       if (isWild) playWildColorChange(nextState.currentColor, nextState);
       return;
     }
@@ -2083,6 +2132,7 @@
     if (isSkip) ghost.classList.add('power-card-glow');
     if (isReverse) ghost.classList.add('reverse-flight-ghost');
     if (isDrawTwo) ghost.classList.add('draw2-slam-ghost');
+    if (isDrawFour) ghost.classList.add('draw4-slam-ghost');
     if (isWild) ghost.classList.add('wild-color-transition-ghost');
     Object.assign(ghost.style, {
       position: 'absolute', left: `${startCenterX - width / 2}px`, top: `${startCenterY - height / 2}px`,
@@ -2105,6 +2155,7 @@
       if (isSkip) playSkipImpact(targetId, nextState);
       if (isReverse) playReverseImpact(nextState);
       if (isDrawTwo) playDrawTwoImpact(drawTwoTargetId, nextState, incomingDrawTwoCards);
+      if (isDrawFour) playDrawTwoImpact(drawFourTargetId, nextState, incomingDrawFourCards);
       if (isWild) playWildColorChange(nextState.currentColor, nextState);
     };
     const endTransform = `translate3d(${endCenterX - startCenterX}px,${endCenterY - startCenterY}px,0) scale(1) rotate(0deg)`;
@@ -2124,6 +2175,14 @@
       });
       flight.animation.finished.then(land).catch(() => {});
       setTimeout(land, 470);
+    } else if (isDrawFour) {
+      const flight = animateDrawFourSlamFlight(ghost, overlay, {
+        startX: startCenterX - width / 2, startY: startCenterY - height / 2,
+        width, height, dx: endCenterX - startCenterX, dy: endCenterY - startCenterY,
+        startTransform: ghost.style.transform, endTransform
+      });
+      flight.animation.finished.then(land).catch(() => {});
+      setTimeout(land, 540);
     } else if (isWild) {
       wildFlight = animateWildSlamFlight(ghost, overlay, {
         startX: startCenterX - width / 2, startY: startCenterY - height / 2,
