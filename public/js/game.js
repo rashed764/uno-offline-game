@@ -24,12 +24,263 @@
     canPass: false,
     isDealing: false,
     isDealingOrFanning: false,
-    latestServerState: null
+    latestServerState: null,
+    stake: 50,
+    targetPlayers: 2,
+    matchRewardId: null,
+    walletId: window.UnoEconomy?.getWalletId(),
+    walletReady: false
   };
 
   // Expose appState globally for testing or dev console inspection
   window.appState = appState;
   window.isDealingOrFanning = false;
+
+  function syncWalletBalance(coins) {
+    if (!window.UnoEconomy?.setCoins(coins)) return;
+    ['menu-coin-balance', 'shop-coin-balance'].forEach(id => {
+      const element = document.getElementById(id);
+      if (element) element.textContent = coins.toLocaleString();
+    });
+    window.dispatchEvent(new CustomEvent('uno-wallet-balance-changed', { detail: { coins } }));
+  }
+
+  function applySelectedThemes() {
+    const economy = window.UnoEconomy;
+    if (!economy) return;
+    const profile = economy.getProfile();
+    const deck = economy.catalog.decks.find(item => item.id === profile.selected.deck);
+    const table = economy.catalog.tables.find(item => item.id === profile.selected.table);
+    if (deck) {
+      document.documentElement.style.setProperty('--deck-back-surface', deck.theme.surface);
+      document.documentElement.style.setProperty('--deck-back-panel', deck.theme.panel);
+      document.documentElement.style.setProperty('--deck-back-emblem', deck.theme.emblem);
+    }
+    if (table) {
+      document.documentElement.style.setProperty('--table-theme-surface', table.theme.surface);
+      document.documentElement.style.setProperty('--table-theme-frame', table.theme.frame);
+    }
+  }
+
+  function setupThemeShop() {
+    const economy = window.UnoEconomy;
+    const openButton = document.getElementById('btn-shop');
+    const closeButton = document.getElementById('btn-shop-close');
+    const modal = document.getElementById('theme-shop-modal');
+    const catalogEl = document.getElementById('theme-shop-catalog');
+    if (!economy || !openButton || !modal || !catalogEl) return;
+    const renderThemePreview = (category, item, preview) => {
+      preview.replaceChildren();
+      preview.classList.add('is-open');
+      if (category === 'decks') {
+        const note = document.createElement('p');
+        note.className = 'shop-inline-preview-note';
+        note.textContent = '10 card samples · Tap a card to flip and view this theme’s back.';
+        const grid = document.createElement('div');
+        grid.className = 'card-preview-grid';
+        const designs = [
+          { color: 'red', value: '0' },
+          { color: 'blue', value: '7' },
+          { color: 'green', value: 'skip' },
+          { color: 'yellow', value: 'reverse' },
+          { color: 'red', value: 'draw2' },
+          { color: 'blue', value: 'draw2' },
+          { color: 'wild', value: 'wild' },
+          { color: 'wild', value: 'wild_draw4' },
+          { color: 'green', value: '9' },
+          { color: 'yellow', value: '5' }
+        ];
+        designs.forEach((design, index) => {
+          const flipButton = document.createElement('button');
+          flipButton.type = 'button';
+          flipButton.className = 'shop-flip-card';
+          flipButton.setAttribute('aria-label', `${design.color} ${design.value} card. Flip to see the back.`);
+          const flipInner = document.createElement('span');
+          flipInner.className = 'shop-flip-card-inner';
+          flipInner.style.setProperty('--deck-back-surface', item.theme.surface);
+          flipInner.style.setProperty('--deck-back-panel', item.theme.panel);
+          flipInner.style.setProperty('--deck-back-emblem', item.theme.emblem);
+          const front = document.createElement('span');
+          front.className = 'shop-flip-face';
+          front.appendChild(create3DCardElement(design, index));
+          const back = document.createElement('span');
+          back.className = 'shop-flip-face shop-flip-back';
+          back.appendChild(create3DCardElement(null, index, 0, true));
+          flipInner.append(front, back);
+          const label = document.createElement('span');
+          label.className = 'shop-flip-card-label';
+          label.textContent = `${design.color === 'wild' ? 'Wild' : design.color} · ${design.value}`;
+          flipButton.append(flipInner, label);
+          grid.appendChild(flipButton);
+        });
+        preview.append(note, grid);
+      } else {
+        const wrap = document.createElement('div');
+        wrap.className = 'theme-board-preview-wrap';
+        const board = document.createElement('div');
+        board.className = 'theme-board-preview';
+        board.style.setProperty('--preview-table-surface', item.theme.surface);
+        board.style.setProperty('--preview-table-frame', item.theme.frame);
+        const boardTitle = document.createElement('span');
+        boardTitle.className = 'theme-board-preview-title';
+        boardTitle.textContent = 'UNO';
+        const cardFan = document.createElement('div');
+        cardFan.className = 'theme-board-preview-cards';
+        [
+          { color: 'blue', value: '5' },
+          { color: 'red', value: 'reverse' },
+          { color: 'wild', value: 'wild_draw4' }
+        ].forEach((design, index) => cardFan.appendChild(create3DCardElement(design, index, (index - 1) * 8)));
+        board.append(boardTitle, cardFan);
+        wrap.appendChild(board);
+        const caption = document.createElement('p');
+        caption.className = 'theme-board-preview-caption';
+        caption.textContent = `${item.name} table preview`;
+        preview.append(wrap, caption);
+      }
+    };
+
+    const setBalance = () => {
+      const balance = economy.getProfile().coins;
+      const menuBalance = document.getElementById('menu-coin-balance');
+      const shopBalance = document.getElementById('shop-coin-balance');
+      if (menuBalance) menuBalance.textContent = balance;
+      if (shopBalance) shopBalance.textContent = balance;
+    };
+
+    const renderCatalog = () => {
+      const profile = economy.getProfile();
+      catalogEl.replaceChildren();
+      [
+        { key: 'decks', title: 'Card Back Themes' },
+        { key: 'tables', title: 'Board Themes' }
+      ].forEach(({ key, title }) => {
+        const section = document.createElement('section');
+        section.className = 'shop-category';
+        const heading = document.createElement('h4');
+        heading.textContent = title;
+        section.appendChild(heading);
+        const grid = document.createElement('div');
+        grid.className = 'shop-item-grid';
+
+        economy.catalog[key].forEach(item => {
+          const unlocked = profile.unlocked[key].includes(item.id);
+          const selectedKey = key === 'decks' ? 'deck' : 'table';
+          const equipped = profile.selected[selectedKey] === item.id;
+          const card = document.createElement('article');
+          card.className = 'shop-item';
+          card.dataset.category = key;
+          card.dataset.itemId = item.id;
+
+          const preview = document.createElement('span');
+          preview.className = 'shop-preview';
+          preview.style.setProperty('--shop-preview-surface', item.theme.surface);
+          preview.style.setProperty('--shop-preview-panel', item.theme.panel || 'transparent');
+          preview.style.setProperty('--shop-preview-mark', item.theme.emblem || 'rgba(255,255,255,.75)');
+          preview.style.setProperty('--shop-preview-frame', item.theme.frame || 'rgba(255,255,255,.7)');
+          const copy = document.createElement('span');
+          copy.className = 'shop-item-copy';
+          const name = document.createElement('strong');
+          name.textContent = item.name;
+          const cost = document.createElement('small');
+          cost.textContent = item.cost === 0 ? 'Free' : `${item.cost} coins`;
+          copy.append(name, cost);
+
+          const action = document.createElement('button');
+          action.type = 'button';
+          action.className = 'shop-item-action';
+          action.dataset.shopAction = unlocked ? 'select' : 'purchase';
+          action.textContent = equipped ? 'Equipped' : (unlocked ? 'Use' : 'Buy');
+          action.disabled = equipped || (!unlocked && profile.coins < item.cost);
+          if (!unlocked && profile.coins < item.cost) action.textContent = 'Too costly';
+          const actions = document.createElement('div');
+          actions.className = 'shop-item-actions';
+          actions.appendChild(action);
+          const previewButton = document.createElement('button');
+          previewButton.type = 'button';
+          previewButton.className = 'shop-preview-button';
+          previewButton.dataset.themePreview = 'true';
+          previewButton.textContent = 'Preview';
+          actions.appendChild(previewButton);
+          const row = document.createElement('div');
+          row.className = 'shop-item-row';
+          row.append(preview, copy, actions);
+          const previewPanel = document.createElement('div');
+          previewPanel.className = 'shop-inline-preview';
+          card.append(row, previewPanel);
+          grid.appendChild(card);
+        });
+        section.appendChild(grid);
+        catalogEl.appendChild(section);
+      });
+      setBalance();
+    };
+
+    openButton.addEventListener('click', () => {
+      renderCatalog();
+      modal.classList.remove('hidden');
+    });
+    closeButton?.addEventListener('click', () => modal.classList.add('hidden'));
+    modal.addEventListener('click', event => {
+      if (event.target === modal) modal.classList.add('hidden');
+    });
+    catalogEl.addEventListener('click', event => {
+      const card = event.target.closest('.shop-flip-card');
+      if (card) card.classList.toggle('is-flipped');
+    });
+    catalogEl.addEventListener('click', event => {
+      const button = event.target.closest('[data-theme-preview]');
+      const itemEl = button?.closest('.shop-item');
+      if (!button || !itemEl) return;
+      const category = itemEl.dataset.category;
+      const item = economy.catalog[category]?.find(entry => entry.id === itemEl.dataset.itemId);
+      const panel = itemEl.querySelector('.shop-inline-preview');
+      const wasOpen = itemEl.classList.contains('show-preview');
+      catalogEl.querySelectorAll('.shop-item.show-preview').forEach(openItem => {
+        openItem.classList.remove('show-preview');
+        const openButton = openItem.querySelector('[data-theme-preview]');
+        if (openButton) openButton.textContent = 'Preview';
+      });
+      if (item && panel && !wasOpen) {
+        renderThemePreview(category, item, panel);
+        itemEl.classList.add('show-preview');
+        button.textContent = 'Hide';
+      }
+    });
+    catalogEl.addEventListener('click', event => {
+      const button = event.target.closest('[data-shop-action]');
+      const itemEl = button?.closest('.shop-item');
+      if (!button || !itemEl) return;
+      const { category, itemId } = itemEl.dataset;
+      if (button.dataset.shopAction === 'purchase') {
+        if (!appState.walletReady) {
+          showToast('Your saved wallet is still loading.');
+          return;
+        }
+        socket.emit('shop_purchase', { itemId }, result => {
+          if (!result?.ok) {
+            showToast(result?.error || 'Could not purchase this theme.');
+            return;
+          }
+          economy.grantPurchase(category, itemId);
+          economy.select(category, itemId);
+          syncWalletBalance(result.coins);
+          applySelectedThemes();
+          showToast('Theme purchased and equipped!');
+          renderCatalog();
+        });
+        return;
+      } else if (economy.select(category, itemId)) {
+        applySelectedThemes();
+        showToast('Theme equipped!');
+      }
+      renderCatalog();
+    });
+    setBalance();
+    renderCatalog();
+    window.addEventListener('uno-wallet-balance-changed', renderCatalog);
+  }
+  applySelectedThemes();
 
   // ==========================================================================
   // FULLSCREEN & RESPONSIVE CANVAS SCALING
@@ -219,14 +470,30 @@
     if (!appState.myPlayerId) {
       appState.myPlayerId = socket.id;
     }
+    appState.walletReady = false;
+    socket.emit('wallet_login', { walletId: appState.walletId }, response => {
+      if (!response?.ok) {
+        showToast(response?.error || 'Could not load your saved coin wallet.');
+        return;
+      }
+      appState.walletReady = true;
+      syncWalletBalance(response.coins);
+    });
+  });
+
+  socket.on('disconnect', () => { appState.walletReady = false; });
+  socket.on('wallet_balance', ({ coins } = {}) => {
+    if (Number.isInteger(coins) && coins >= 0) syncWalletBalance(coins);
   });
 
   // Room Created / Joined
-  socket.on('room_created', ({ roomId, player, mode, players }) => {
+  socket.on('room_created', ({ roomId, player, mode, players, stake = 50, targetPlayers = 2 }) => {
     console.log(`[Lobby] Room ready: ${roomId} (Host: ${player?.isHost})`);
     appState.roomId = roomId;
     appState.isHost = Boolean(player?.isHost);
     appState.mode = mode;
+    appState.stake = stake;
+    appState.targetPlayers = targetPlayers;
     if (player && player.id) {
       appState.myPlayerId = player.id;
     }
@@ -238,6 +505,16 @@
 
     const playerList = players || (player ? [{ id: player.id, name: player.name, isHost: player.isHost }] : []);
     updatePlayersLobbyList(playerList);
+
+    const wallet = window.UnoEconomy?.getProfile().coins ?? 0;
+    if (mode === 'lan' && !player?.isHost && wallet < stake) {
+      socket.emit('leave_room', { roomId });
+      appState.roomId = null;
+      showToast(`This room needs ${stake} coins, but your balance is ${wallet}.`);
+      return;
+    }
+    const wagerInfo = document.getElementById('lobby-wager-info');
+    if (wagerInfo) wagerInfo.textContent = `${stake} coin stake · ${targetPlayers} players · Winner's pot: ${stake * targetPlayers} coins`;
 
     // In AI Mode, immediately trigger match start for the host
     if (mode === 'ai' && player?.isHost) {
@@ -268,6 +545,10 @@
   // Game Started Event - Immediate transition & authoritative UI render
   socket.on('game_started', (payload) => {
     const gameState = (payload && payload.gameState) ? payload.gameState : payload;
+    const wagerInfo = payload?.wager || {};
+    appState.stake = Number(wagerInfo.stake || appState.stake || 50);
+    appState.targetPlayers = Number(wagerInfo.playerCount || appState.targetPlayers || gameState?.players?.length || 2);
+    appState.matchRewardId = payload?.matchId || `${appState.roomId || 'match'}:${Date.now()}`;
     appState.latestServerState = gameState;
 
     appState.selectedCardId = null;
@@ -366,13 +647,26 @@
   });
 
   // Game Over
-  socket.on('game_over', ({ winnerName, message }) => {
+  socket.on('game_over', ({ winnerName, winnerId, message, matchId, wager }) => {
     const titleEl = document.getElementById('game-winner-title');
     const msgEl = document.getElementById('game-winner-message');
     const modalEl = document.getElementById('game-over-modal');
 
     if (titleEl) titleEl.textContent = `${(winnerName || 'WINNER').toUpperCase()} WINS!`;
-    if (msgEl) msgEl.textContent = message || `${winnerName} has won the match!`;
+    const restartButton = document.getElementById('btn-restart');
+    if (restartButton) restartButton.classList.toggle('hidden', !appState.isHost);
+    let payout = 0;
+    const settledMatchId = matchId || appState.matchRewardId;
+    if (window.UnoEconomy && settledMatchId) {
+      const isLocalWinner = winnerId
+        ? String(winnerId) === String(appState.myPlayerId || socket.id)
+        : String(winnerName || '').trim().toLowerCase() === String(appState.playerName || '').trim().toLowerCase();
+      const stake = Number(wager?.stake || appState.stake || 50);
+      const playerCount = Number(wager?.playerCount || appState.targetPlayers || 2);
+      payout = isLocalWinner ? stake * playerCount : 0;
+      appState.matchRewardId = null;
+    }
+    if (msgEl) msgEl.textContent = `${message || `${winnerName} has won the match!`} ${payout ? `You won the ${payout} coin pot!` : `Your ${appState.stake} coin stake was lost.`}`.trim();
     if (modalEl) modalEl.classList.remove('hidden');
   });
 
@@ -397,6 +691,13 @@
       `;
       listEl.appendChild(li);
     });
+
+    const startButton = document.getElementById('btn-start-game');
+    if (startButton && appState.mode === 'lan' && appState.isHost) {
+      const ready = players.length === appState.targetPlayers;
+      startButton.disabled = !ready;
+      startButton.title = ready ? 'Start the wager match' : `Waiting for ${appState.targetPlayers - players.length} more player(s)`;
+    }
   }
 
   // ==========================================================================
@@ -2290,6 +2591,78 @@
   // DOM EVENT BINDINGS
   // ==========================================================================
 
+  function setupMatchWager() {
+    const modal = document.getElementById('match-setup-modal');
+    const amountInput = document.getElementById('match-wager-amount');
+    const playerSelect = document.getElementById('match-player-count');
+    const payoutPreview = document.getElementById('match-payout-preview');
+    const walletPreview = document.getElementById('match-wallet-preview');
+    const continueButton = document.getElementById('btn-match-setup-confirm');
+    if (!modal || !amountInput || !playerSelect || !continueButton) return;
+
+    const updatePreview = () => {
+      const stake = Number(amountInput.value);
+      const players = Number(playerSelect.value);
+      const coins = window.UnoEconomy?.getProfile().coins ?? 0;
+      const validStake = Number.isInteger(stake) && stake >= 50 && stake <= 10000;
+      const pot = validStake ? stake * players : 0;
+      if (payoutPreview) payoutPreview.textContent = validStake
+        ? `Winner gets the ${pot.toLocaleString()} coin pot (${stake} × ${players} players).`
+        : 'Choose a stake from 50 to 10,000 coins.';
+      if (walletPreview) {
+        walletPreview.textContent = !appState.walletReady
+          ? 'Connecting to your saved wallet…'
+          : validStake && coins >= stake
+          ? `Your balance: ${coins.toLocaleString()} coins · Stake: ${stake.toLocaleString()} coins`
+          : `Your balance: ${coins.toLocaleString()} coins · Not enough coins for this stake.`;
+        walletPreview.classList.toggle('insufficient', appState.walletReady && (!validStake || coins < stake));
+      }
+      continueButton.disabled = !appState.walletReady || !validStake || coins < stake;
+    };
+
+    const close = () => {
+      modal.classList.add('hidden');
+      appState.pendingGameMode = null;
+    };
+    document.getElementById('btn-match-setup-close')?.addEventListener('click', close);
+    document.getElementById('btn-match-setup-cancel')?.addEventListener('click', close);
+    amountInput.addEventListener('input', updatePreview);
+    playerSelect.addEventListener('change', updatePreview);
+    window.addEventListener('uno-wallet-balance-changed', updatePreview);
+    modal.addEventListener('click', event => { if (event.target === modal) close(); });
+
+    document.getElementById('btn-vs-ai')?.addEventListener('click', () => {
+      appState.pendingGameMode = 'ai';
+      updatePreview();
+      modal.classList.remove('hidden');
+    });
+    document.getElementById('btn-create-room')?.addEventListener('click', () => {
+      appState.pendingGameMode = 'lan';
+      updatePreview();
+      modal.classList.remove('hidden');
+    });
+    continueButton.addEventListener('click', () => {
+      const stake = Number(amountInput.value);
+      const targetPlayers = Number(playerSelect.value);
+      const mode = appState.pendingGameMode;
+      if (!mode || !Number.isInteger(stake) || stake < 50 || stake > 10000
+        || ![2, 3, 4].includes(targetPlayers) || !appState.walletReady
+        || window.UnoEconomy.getProfile().coins < stake) {
+        updatePreview();
+        return;
+      }
+      appState.stake = stake;
+      appState.targetPlayers = targetPlayers;
+      close();
+      requestFullscreenApp();
+      const nameInput = document.getElementById('player-name');
+      const name = nameInput?.value.trim() || 'Player 1';
+      appState.playerName = name;
+      socket.emit('create_room', { playerName: name, mode, stake, targetPlayers, walletId: appState.walletId });
+    });
+    updatePreview();
+  }
+
   function setupStartupScreen() {
     const startupScreen = document.getElementById('startup-screen');
     const startButton = document.getElementById('startup-start');
@@ -2326,9 +2699,9 @@
 
   function bindDomEvents() {
     setupStartupScreen();
+    setupMatchWager();
+    setupThemeShop();
     const nameInput = document.getElementById('player-name');
-    const btnVsAi = document.getElementById('btn-vs-ai');
-    const btnCreateRoom = document.getElementById('btn-create-room');
     const btnShowJoin = document.getElementById('btn-show-join');
     const joinBox = document.getElementById('join-box');
     const btnJoinRoom = document.getElementById('btn-join-room');
@@ -2340,26 +2713,6 @@
     const btnUno = document.getElementById('btn-uno');
     const btnRestart = document.getElementById('btn-restart');
     const btnHome = document.getElementById('btn-home');
-
-    // Vs AI Mode
-    if (btnVsAi) {
-      btnVsAi.addEventListener('click', () => {
-        requestFullscreenApp();
-        const name = (nameInput && nameInput.value.trim()) ? nameInput.value.trim() : 'Player 1';
-        appState.playerName = name;
-        socket.emit('create_room', { playerName: name, mode: 'ai' });
-      });
-    }
-
-    // Create LAN Lobby
-    if (btnCreateRoom) {
-      btnCreateRoom.addEventListener('click', () => {
-        requestFullscreenApp();
-        const name = (nameInput && nameInput.value.trim()) ? nameInput.value.trim() : 'Player 1';
-        appState.playerName = name;
-        socket.emit('create_room', { playerName: name, mode: 'lan' });
-      });
-    }
 
     // Toggle Join Code Input Box
     if (btnShowJoin && joinBox) {
@@ -2381,7 +2734,7 @@
         }
 
         appState.playerName = name;
-        socket.emit('join_room', { roomId: roomCode, playerName: name });
+        socket.emit('join_room', { roomId: roomCode, playerName: name, walletId: appState.walletId });
       });
     }
 
@@ -2526,6 +2879,14 @@
     // Play Again & Home from Victory Modal
     if (btnRestart) {
       btnRestart.addEventListener('click', () => {
+        if (!appState.isHost) {
+          showToast('Only the host can start the next match.');
+          return;
+        }
+        if ((window.UnoEconomy?.getProfile().coins ?? 0) < appState.stake) {
+          showToast(`You need ${appState.stake} coins to play again. Return to the menu to choose a lower stake.`);
+          return;
+        }
         const gameOverModal = document.getElementById('game-over-modal');
         if (gameOverModal) gameOverModal.classList.add('hidden');
         if (appState.roomId) {

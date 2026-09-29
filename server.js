@@ -12,6 +12,8 @@ const path = require('path');
 const { getLocalIpAddresses } = require('./src/utils/network');
 const GameEngine = require('./src/game/GameEngine');
 const BotPlayer = require('./src/game/BotPlayer');
+const WalletDatabase = require('./src/game/WalletDatabase');
+const themeCatalog = require('./public/js/theme-catalog');
 
 const app = express();
 const server = http.createServer(app);
@@ -31,6 +33,24 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Active Game Rooms Map: RoomId -> GameEngine Instance
 const activeGames = new Map();
+const walletDatabase = new WalletDatabase();
+const SHOP_ITEM_COSTS = Object.freeze(Object.fromEntries(
+  [...themeCatalog.decks, ...themeCatalog.tables]
+    .filter(item => item.cost > 0)
+    .map(item => [item.id, item.cost])
+));
+
+function settleGameWager(game) {
+  if (!game || game.wagerSettled || !game.winner) return;
+  game.wagerSettled = true;
+  const winner = game.winner;
+  if (!winner.isBot && winner.walletId) {
+    walletDatabase.credit(winner.walletId, game.stake * game.wagerPlayerCount);
+  }
+  game.players.filter(player => !player.isBot && player.walletId).forEach(player => {
+    io.to(player.id).emit('wallet_balance', { coins: walletDatabase.getBalance(player.walletId) });
+  });
+}
 
 /**
  * Sends authoritative, player-tailored game states to all connected human clients
@@ -157,7 +177,11 @@ function executeBotPlay(game, activePlayer, card) {
 function finalizeAiTurn(game) {
   if (game.winner) {
     broadcastGameState(game);
+    settleGameWager(game);
     io.to(game.roomId).emit('game_over', {
+      winnerId: game.winner.id,
+      matchId: game.matchId,
+      wager: { stake: game.stake, playerCount: game.wagerPlayerCount },
       winnerName: game.winner.name,
       message: `🤖 Bot ${game.winner.name} successfully cleared their hand and won the match!`
     });
@@ -172,11 +196,48 @@ function finalizeAiTurn(game) {
 io.on('connection', (socket) => {
   console.log(`[Socket Connected] ID: ${socket.id}`);
 
+  socket.on('wallet_login', ({ walletId } = {}, acknowledge = () => {}) => {
+    try {
+      const wallet = walletDatabase.getOrCreate(walletId);
+      socket.data.walletId = walletId;
+      acknowledge({ ok: true, coins: wallet.coins });
+    } catch (_) {
+      acknowledge({ ok: false, error: 'Could not load the saved coin wallet.' });
+    }
+  });
+
+  socket.on('shop_purchase', ({ itemId } = {}, acknowledge = () => {}) => {
+    const walletId = socket.data.walletId;
+    const cost = SHOP_ITEM_COSTS[itemId];
+    if (!walletId || !Number.isInteger(cost)) {
+      acknowledge({ ok: false, error: 'Unknown shop item.' });
+      return;
+    }
+    const purchase = walletDatabase.purchase(walletId, itemId, cost);
+    if (!purchase.ok) {
+      acknowledge({ ok: false, error: 'Not enough coins.' });
+      return;
+    }
+    acknowledge({ ok: true, coins: purchase.coins, alreadyOwned: purchase.alreadyOwned });
+    socket.emit('wallet_balance', { coins: purchase.coins });
+  });
+
   // Create Room Event
-  socket.on('create_room', ({ playerName, mode }) => {
+  socket.on('create_room', ({ playerName, mode, stake = 50, targetPlayers = 2 } = {}) => {
+    if (!socket.data.walletId) return socket.emit('error_message', 'Wallet is still loading. Please try again.');
+    const wager = Number(stake);
+    const playerCount = Number(targetPlayers);
+    if (!Number.isInteger(wager) || wager < 50 || wager > 10000 || ![2, 3, 4].includes(playerCount)) {
+      return socket.emit('error_message', 'Choose a stake from 50 to 10,000 coins and 2 to 4 players.');
+    }
+    if (walletDatabase.getBalance(socket.data.walletId) < wager) {
+      return socket.emit('error_message', `You need at least ${wager} coins to create this match.`);
+    }
     const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
     const gameMode = (mode === 'ai') ? 'ai' : 'lan';
     const game = new GameEngine(roomId, gameMode);
+    game.stake = wager;
+    game.targetPlayers = playerCount;
 
     const safeName = (playerName && playerName.trim()) ? playerName.trim().substring(0, 15) : 'Player 1';
     const hostPlayer = {
@@ -184,6 +245,7 @@ io.on('connection', (socket) => {
       name: safeName,
       isHost: true,
       isBot: false,
+      walletId: socket.data.walletId,
       hand: []
     };
 
@@ -195,7 +257,7 @@ io.on('connection', (socket) => {
         new BotPlayer('bot_alice', 'Bot Alice'),
         new BotPlayer('bot_bob', 'Bot Bob'),
         new BotPlayer('bot_charlie', 'Bot Charlie')
-      ];
+      ].slice(0, playerCount - 1);
       bots.forEach(bot => game.addPlayer(bot));
     }
 
@@ -215,6 +277,8 @@ io.on('connection', (socket) => {
       roomId,
       player: hostPlayer,
       mode: gameMode,
+      stake: game.stake,
+      targetPlayers: game.targetPlayers,
       players: lobbyPlayers
     });
 
@@ -223,6 +287,7 @@ io.on('connection', (socket) => {
 
   // Join Room Event
   socket.on('join_room', ({ roomId, playerName }) => {
+    if (!socket.data.walletId) return socket.emit('error_message', 'Wallet is still loading. Please try again.');
     const formattedRoomId = (roomId && typeof roomId === 'string') ? roomId.trim().toUpperCase() : '';
     const game = activeGames.get(formattedRoomId);
 
@@ -234,8 +299,12 @@ io.on('connection', (socket) => {
       return socket.emit('error_message', 'Game has already started in this room!');
     }
 
-    if (game.players.length >= 4) {
-      return socket.emit('error_message', 'Lobby is full! Maximum 4 players allowed.');
+    if (game.players.length >= game.targetPlayers) {
+      return socket.emit('error_message', `Lobby is full! This match is set for ${game.targetPlayers} players.`);
+    }
+
+    if (walletDatabase.getBalance(socket.data.walletId) < game.stake) {
+      return socket.emit('error_message', `This room needs ${game.stake} coins, but your saved balance is too low.`);
     }
 
     const safeName = (playerName && playerName.trim()) ? playerName.trim().substring(0, 15) : `Player ${game.players.length + 1}`;
@@ -244,6 +313,7 @@ io.on('connection', (socket) => {
       name: safeName,
       isHost: false,
       isBot: false,
+      walletId: socket.data.walletId,
       hand: []
     };
 
@@ -263,6 +333,8 @@ io.on('connection', (socket) => {
       roomId: formattedRoomId,
       player: joiningPlayer,
       mode: game.mode,
+      stake: game.stake,
+      targetPlayers: game.targetPlayers,
       players: lobbyPlayers
     });
 
@@ -275,16 +347,43 @@ io.on('connection', (socket) => {
   });
 
   // Start Game Event
-  socket.on('start_game', ({ roomId }) => {
+  socket.on('start_game', ({ roomId } = {}) => {
     const formattedRoomId = (roomId && typeof roomId === 'string') ? roomId.trim().toUpperCase() : '';
     const game = activeGames.get(formattedRoomId);
     if (!game) return;
+
+    const requester = game.players.find(player => String(player.id) === String(socket.id));
+    if (!requester?.isHost) return socket.emit('error_message', 'Only the host can start this match.');
+    if (game.isGameStarted && !game.winner) return socket.emit('error_message', 'This match has already started.');
+    if (game.players.length !== game.targetPlayers) {
+      return socket.emit('error_message', `Waiting for players: ${game.players.length}/${game.targetPlayers}.`);
+    }
+
+    const requiredByWallet = new Map();
+    const wageredPlayers = game.players.filter(player => !player.isBot);
+    for (const player of wageredPlayers) {
+      if (!player.walletId) return socket.emit('error_message', `${player.name}'s wallet is not connected.`);
+      requiredByWallet.set(player.walletId, (requiredByWallet.get(player.walletId) || 0) + game.stake);
+    }
+    for (const [walletId, required] of requiredByWallet) {
+      if (walletDatabase.getBalance(walletId) < required) {
+        const player = wageredPlayers.find(candidate => candidate.walletId === walletId);
+        return socket.emit('error_message', `${player?.name || 'A player'} no longer has enough coins for this stake.`);
+      }
+    }
 
     if (game.aiTimeout) {
       clearTimeout(game.aiTimeout);
       game.aiTimeout = null;
     }
 
+    game.matchId = `${formattedRoomId}:${Date.now()}:${Math.random().toString(36).slice(2, 7)}`;
+    game.wagerPlayerCount = game.players.length;
+    game.wagerSettled = false;
+    wageredPlayers.forEach(player => {
+      const balance = walletDatabase.debit(player.walletId, game.stake);
+      io.to(player.id).emit('wallet_balance', { coins: balance });
+    });
     game.startGame();
 
     // Broadcast tailored authoritative states to each connected player
@@ -292,7 +391,9 @@ io.on('connection', (socket) => {
       if (!player.isBot && player.id) {
         const statePayload = game.getGameState(player.id);
         io.to(player.id).emit('game_started', {
-          gameState: statePayload
+          gameState: statePayload,
+          matchId: game.matchId,
+          wager: { stake: game.stake, playerCount: game.wagerPlayerCount }
         });
         io.to(player.id).emit('game_state', {
           gameState: statePayload
@@ -315,7 +416,11 @@ io.on('connection', (socket) => {
     if (playResult && playResult.success) {
       if (game.winner) {
         broadcastGameState(game);
+        settleGameWager(game);
         io.to(formattedRoomId).emit('game_over', {
+          winnerId: game.winner.id,
+          matchId: game.matchId,
+          wager: { stake: game.stake, playerCount: game.wagerPlayerCount },
           winnerName: game.winner.name,
           message: `🏆 ${game.winner.name} successfully cleared their hand and won the match!`
         });

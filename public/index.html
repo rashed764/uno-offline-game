@@ -11,7 +11,7 @@
   <link rel="apple-touch-icon" href="uno-icon.svg">
   <link rel="preload" as="image" href="assets/Offline_UNO_loading_BG.jpg">
   <title>UNO! 3D Classic - Offline & Local Network Multiplayer</title>
-  <link rel="stylesheet" href="css/style.css?v=2.6">
+  <link rel="stylesheet" href="css/style.css?v=3.2">
   <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css">
   <script src="/socket.io/socket.io.js"></script>
 </head>
@@ -37,6 +37,7 @@
         <section id="menu-screen" class="screen active">
           <div class="menu-card-decor menu-card-decor-left" aria-hidden="true"><span>UNO</span></div>
           <div class="menu-card-decor menu-card-decor-right" aria-hidden="true"><span>UNO</span></div>
+          <div class="menu-wallet-badge" aria-label="Coin balance"><i class="fa-solid fa-coins" aria-hidden="true"></i><span id="menu-coin-balance">100</span><span>coins</span></div>
           <!-- Premium Header for Menu/Lobby screens only -->
           <header class="header menu-header-floating">
             <div class="logo-3d-container">
@@ -91,6 +92,14 @@
                   <span class="btn-desc">Table scale, cards & font size</span>
                 </div>
               </button>
+
+              <button id="btn-shop" class="btn-premium btn-shop-toggle">
+                <div class="btn-icon"><i class="fa-solid fa-store"></i></div>
+                <div class="btn-info">
+                  <span class="btn-title">Theme Shop</span>
+                  <span class="btn-desc">Card backs and table themes</span>
+                </div>
+              </button>
             </div>
 
             <!-- Join Interactive Box -->
@@ -117,6 +126,7 @@
                 <span class="code-label">ROOM LOBBY CODE</span>
                 <div id="lobby-room-code" class="highlight-code">------</div>
               </div>
+              <p id="lobby-wager-info" class="lobby-wager-info"></p>
               <p class="lan-instruction">
                 <i class="fa-solid fa-circle-info"></i> Ask friends on the same Wi-Fi network to use this Room Code to join!
               </p>
@@ -286,6 +296,49 @@
         </div>
       </div>
 
+      <!-- Match Wager Setup -->
+      <div id="match-setup-modal" class="modal-overlay hidden">
+        <div class="modal-content match-setup-box animate-scale-up glass-morphic" role="dialog" aria-modal="true" aria-labelledby="match-setup-title">
+          <div class="modal-header">
+            <h3 id="match-setup-title"><i class="fa-solid fa-coins"></i> Set Match Wager</h3>
+            <button id="btn-match-setup-close" class="drawer-close-btn" aria-label="Close setup"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+          <label class="match-setup-field" for="match-wager-amount">
+            <span>Stake per player <small>(50–10,000 coins)</small></span>
+            <div class="wager-input-wrap"><i class="fa-solid fa-coins"></i><input id="match-wager-amount" type="number" min="50" max="10000" step="50" value="50"></div>
+          </label>
+          <label class="match-setup-field" for="match-player-count">
+            <span>Players</span>
+            <select id="match-player-count">
+              <option value="2">1 vs 1</option>
+              <option value="3">1 vs 1 vs 1</option>
+              <option value="4">1 vs 1 vs 1 vs 1</option>
+            </select>
+          </label>
+          <p id="match-payout-preview" class="match-payout-preview">Winner gets the 100 coin pot.</p>
+          <p id="match-wallet-preview" class="match-wallet-preview"></p>
+          <div class="modal-footer-actions">
+            <button id="btn-match-setup-cancel" class="btn btn-secondary-3d">Cancel</button>
+            <button id="btn-match-setup-confirm" class="btn btn-success-3d">Continue</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Theme Shop -->
+      <div id="theme-shop-modal" class="modal-overlay hidden">
+        <div class="modal-content theme-shop-box animate-scale-up glass-morphic" role="dialog" aria-modal="true" aria-labelledby="theme-shop-title">
+          <div class="modal-header">
+            <div>
+              <h3 id="theme-shop-title"><i class="fa-solid fa-store"></i> Theme Shop</h3>
+              <p class="shop-wallet"><i class="fa-solid fa-coins"></i> <span id="shop-coin-balance">100</span> coins</p>
+            </div>
+            <button id="btn-shop-close" class="drawer-close-btn" aria-label="Close shop"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+          <p class="shop-reward-note">Wager 50–10,000 coins per match. The winner takes the full pot; losing stakes are lost.</p>
+          <div id="theme-shop-catalog" class="theme-shop-catalog"></div>
+        </div>
+      </div>
+
       <!-- Custom In-Game Modal Component (Alert & Confirm) -->
       <div id="custom-game-modal" class="modal-overlay hidden">
         <div class="modal-content custom-game-modal-box animate-scale-up glass-morphic">
@@ -388,8 +441,9 @@
     </div>
   </div>
 
-  <script src="js/economy.js"></script>
+  <script src="js/theme-catalog.js?v=2"></script>
+  <script src="js/economy.js?v=2"></script>
   <script src="js/game-effects.js"></script>
-  <script src="js/game.js?v=2.5"></script>
+  <script src="js/game.js?v=2.11"></script>
 </body>
 </html>
