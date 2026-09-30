@@ -331,24 +331,34 @@
     }
   }
 
+  function getPlayerHandCardPlacement(handContainer, totalCards, index, cardWidth) {
+    const availableWidth = handContainer.clientWidth || 380;
+    const maxUsableWidth = Math.max(0, availableWidth - cardWidth - 12);
+    const cardStep = Math.min(34, Math.max(18, cardWidth * 0.7));
+    const spreadWidth = totalCards > 1
+      ? Math.min((totalCards - 1) * cardStep, maxUsableWidth)
+      : 0;
+    const angle = totalCards > 1
+      ? -17.5 + index * (35 / (totalCards - 1))
+      : 0;
+    const x = totalCards > 1
+      ? -spreadWidth / 2 + index * (spreadWidth / (totalCards - 1))
+      : 0;
+    return { x, y: Math.abs(angle) * 0.5, angle };
+  }
+
   function relayoutPlayerHand(handContainer) {
     if (!handContainer) handContainer = document.getElementById('player-cards-fan');
     if (!handContainer) return;
-    const cardEls = Array.from(handContainer.querySelectorAll('.card-3d:not(.draw-flight-card)'));
+    const cardEls = Array.from(handContainer.children)
+      .filter(card => card.classList.contains('card-3d') && !card.classList.contains('draw-flight-card'));
     const totalCards = cardEls.length;
     if (totalCards === 0) return;
 
-    const availableWidth = handContainer.clientWidth || 380;
-    const cardWidth = cardEls[0]?.getBoundingClientRect().width || 64;
-    const maxUsableWidth = Math.max(0, availableWidth - cardWidth - 12);
-    const naturalSpread = totalCards > 1 ? (totalCards - 1) * Math.min(46, Math.max(18, availableWidth / (totalCards + 1))) : 0;
-    const spreadWidth = Math.min(maxUsableWidth, naturalSpread);
-    const maxSpreadAngle = Math.min(36, totalCards * 4.5);
+    const cardWidth = parseFloat(getComputedStyle(cardEls[0]).width) || cardEls[0]?.offsetWidth || 64;
 
     cardEls.forEach((cardEl, idx) => {
-      const angle = totalCards > 1 ? - (maxSpreadAngle / 2) + idx * (maxSpreadAngle / (totalCards - 1)) : 0;
-      const targetX = totalCards > 1 ? - (spreadWidth / 2) + idx * (spreadWidth / (totalCards - 1)) : 0;
-      const targetY = Math.abs(angle) * 0.7;
+      const { x: targetX, y: targetY, angle } = getPlayerHandCardPlacement(handContainer, totalCards, idx, cardWidth);
 
       cardEl.style.setProperty('--x', targetX);
       cardEl.style.setProperty('--y', targetY);
@@ -3048,19 +3058,15 @@
   function startDrawGhost(deck, onArrive) {
     const hand = document.getElementById('player-cards-fan');
     if (!hand) { onArrive(); return; }
-    const handCards = Array.from(hand.querySelectorAll('.card-3d'));
+    const handCards = Array.from(hand.children)
+      .filter(card => card.classList.contains('card-3d') && !card.classList.contains('draw-flight-card'));
     const count = handCards.length + 1;
     const targetIndex = handCards.length;
-    const angle = count > 1 ? -20 + targetIndex * (40 / (count - 1)) : 0;
-    const y = Math.abs(angle) * 0.8;
-    const probe = create3DCardElement(null, targetIndex, angle, true);
+    const probe = create3DCardElement(null, targetIndex, 0, true);
     probe.style.cssText = 'position:absolute;bottom:0;visibility:hidden;pointer-events:none;transform:none;transform-origin:bottom center;';
     hand.appendChild(probe);
     const unrotated = probe.getBoundingClientRect();
-    const spread = count > 1
-      ? Math.min(380, count * 40, Math.max(0, (hand.clientWidth || 380) - unrotated.width - 16))
-      : 0;
-    const x = count > 1 ? -spread / 2 + targetIndex * (spread / (count - 1)) : 0;
+    const { x, y, angle } = getPlayerHandCardPlacement(hand, count, targetIndex, unrotated.width);
     probe.style.setProperty('--x', x);
     probe.style.setProperty('--y', y);
     probe.style.setProperty('--angle', angle);
@@ -3127,30 +3133,40 @@
     window.drawRevealCardId = String(pending.card.id);
     renderGame(pending.state);
     const hand = document.getElementById('player-cards-fan');
-    const realCard = hand && Array.from(hand.querySelectorAll('.card-3d'))
+    const realCard = hand && Array.from(hand.children)
       .find(card => card.dataset.cardId === String(pending.card.id));
     if (realCard) {
       alignCardToLanding(realCard, landingRect);
       setTimeout(() => realCard.classList.add('is-revealed'), 100);
-      // Commit the revealed card to the normal hand markup after the 3D flip.
-      // This keeps the front visible even if a browser drops a 3D backface frame.
+      // Let the reveal finish at the pile landing point, then ease the card into
+      // its permanent fan position before replacing the 3D flip markup.
       setTimeout(() => {
         if (!realCard.isConnected || !hand) return;
-        const index = Array.from(hand.querySelectorAll('.card-3d')).indexOf(realCard);
-        if (index < 0) return;
-        const faceUpCard = create3DCardElement(pending.card, index, 0, false);
-        faceUpCard.dataset.cardId = String(pending.card.id);
-        ['--x', '--y', '--angle', '--index', '--i'].forEach(name => {
-          faceUpCard.style.setProperty(name, realCard.style.getPropertyValue(name));
-        });
-        ['position', 'bottom', 'transformOrigin', 'zIndex', 'transform'].forEach(name => {
-          faceUpCard.style[name] = realCard.style[name];
-        });
-        if (pending.state.lastDrawnCardId && String(pending.state.lastDrawnCardId) === String(pending.card.id)) {
-          faceUpCard.classList.add('just-drawn');
-        }
-        faceUpCard.addEventListener('click', () => handleCardClick(pending.card, faceUpCard, index));
-        realCard.replaceWith(faceUpCard);
+        const targetX = parseFloat(realCard.style.getPropertyValue('--x')) || 0;
+        const targetY = parseFloat(realCard.style.getPropertyValue('--y')) || 0;
+        const targetAngle = parseFloat(realCard.style.getPropertyValue('--angle')) || 0;
+        const targetTransform = `translateX(${targetX}px) translateY(${targetY}px) rotateZ(${targetAngle}deg) scale(1)`;
+        realCard.style.transform = targetTransform;
+
+        setTimeout(() => {
+          if (!realCard.isConnected || !hand) return;
+          const index = Array.from(hand.children).indexOf(realCard);
+          if (index < 0) return;
+          const faceUpCard = create3DCardElement(pending.card, index, 0, false);
+          faceUpCard.dataset.cardId = String(pending.card.id);
+          ['--x', '--y', '--angle', '--index', '--i'].forEach(name => {
+            faceUpCard.style.setProperty(name, realCard.style.getPropertyValue(name));
+          });
+          ['position', 'bottom', 'transformOrigin', 'zIndex'].forEach(name => {
+            faceUpCard.style[name] = realCard.style[name];
+          });
+          faceUpCard.style.transform = targetTransform;
+          if (pending.state.lastDrawnCardId && String(pending.state.lastDrawnCardId) === String(pending.card.id)) {
+            faceUpCard.classList.add('just-drawn');
+          }
+          faceUpCard.addEventListener('click', () => handleCardClick(pending.card, faceUpCard, index));
+          realCard.replaceWith(faceUpCard);
+        }, 280);
       }, 760);
     }
   }
@@ -3182,8 +3198,6 @@
     const x = parseFloat(card.style.getPropertyValue('--x')) || 0;
     const y = parseFloat(card.style.getPropertyValue('--y')) || 0;
     const angle = parseFloat(card.style.getPropertyValue('--angle')) || 0;
-    card.style.setProperty('--x', x + offsetX);
-    card.style.setProperty('--y', y + offsetY);
     card.style.transform = `translateX(${x + offsetX}px) translateY(${y + offsetY}px) rotateZ(${angle}deg) scale(1)`;
   }
 
